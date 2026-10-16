@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { User, Phone, Lock, Flame, Utensils, Check, ArrowRight, Sparkles, LogIn, UserPlus, Upload, Camera, Trash2, Image as ImageIcon } from 'lucide-react';
+import { User, Phone, Lock, Flame, Utensils, Check, ArrowRight, Sparkles, LogIn, UserPlus, Camera, Trash2 } from 'lucide-react';
 import { MASTER_CUISINES, BUDGET_TIERS } from '../data/mockData';
 import { api } from '../services/api';
 
-export default function AuthView({ onAuthSuccess }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthSuccess }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -103,7 +102,6 @@ export default function AuthView({ onAuthSuccess }) {
     setLoading(true);
 
     try {
-      // Nếu chưa tải ảnh lên, dùng ảnh avatar mặc định theo giới tính
       const defaultAvatar = regData.gender === 'female'
         ? 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&auto=format&fit=crop&q=80'
         : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80';
@@ -129,7 +127,6 @@ export default function AuthView({ onAuthSuccess }) {
         onAuthSuccess(res.data.user);
       }
     } catch (err) {
-      // Fallback lưu local nếu backend bận
       const fallbackAvatar = regData.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80';
       const localUser = {
         id: `user-${Date.now().toString().slice(-6)}`,
@@ -168,45 +165,20 @@ export default function AuthView({ onAuthSuccess }) {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-5 pb-28">
-      {/* Brand Header */}
-      <div className="text-center mb-5">
-        <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-orange-500 to-amber-400 mx-auto flex items-center justify-center text-white shadow-lg shadow-orange-500/30 mb-3 animate-pulse">
-          <Utensils className="w-9 h-9 stroke-[2.2]" />
+    <div className="max-w-md mx-auto px-4 py-4 pb-28">
+      {/* Brand Header: Hiển thị đúng tiêu đề của chức năng đang chọn */}
+      <div className="text-center mb-4">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 mx-auto flex items-center justify-center text-white shadow-md shadow-orange-500/25 mb-2">
+          {authMode === 'login' ? <LogIn className="w-7 h-7" /> : <UserPlus className="w-7 h-7" />}
         </div>
-        <h2 className="text-2xl font-black bg-gradient-to-r from-orange-600 to-amber-500 bg-clip-text text-transparent">
-          Cộng Đồng FoodMate
+        <h2 className="text-xl font-black bg-gradient-to-r from-orange-600 to-amber-500 bg-clip-text text-transparent">
+          {authMode === 'login' ? 'Đăng Nhập Tài Khoản' : 'Đăng Ký Thành Viên Mới'}
         </h2>
-        <p className="text-xs text-slate-500 font-medium mt-1">
-          Đăng ký & Đăng nhập để lưu hồ sơ khẩu vị và kết nối bạn ăn cùng bàn
+        <p className="text-xs text-slate-500 font-medium mt-0.5 max-w-xs mx-auto">
+          {authMode === 'login'
+            ? 'Đăng nhập để xem gợi ý món ngon và kết nối bạn ăn cùng bàn'
+            : 'Tạo tài khoản và thiết lập gu ẩm thực để tìm bạn ăn ưng ý nhất'}
         </p>
-      </div>
-
-      {/* Tab Chuyển đổi Đăng nhập / Đăng ký */}
-      <div className="flex bg-slate-200/80 p-1 rounded-2xl mb-5 shadow-inner">
-        <button
-          onClick={() => { setMode('login'); setErrorMsg(''); }}
-          className={`flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center space-x-1.5 transition duration-200 ${
-            mode === 'login'
-              ? 'bg-white text-orange-600 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <LogIn className="w-4 h-4" />
-          <span>Đăng Nhập</span>
-        </button>
-
-        <button
-          onClick={() => { setMode('register'); setErrorMsg(''); }}
-          className={`flex-1 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center space-x-1.5 transition duration-200 ${
-            mode === 'register'
-              ? 'bg-white text-orange-600 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Đăng Ký Tài Khoản</span>
-        </button>
       </div>
 
       {/* Thông báo lỗi nếu có */}
@@ -216,12 +188,13 @@ export default function AuthView({ onAuthSuccess }) {
         </div>
       )}
 
-      {/* ==================== FORM ĐĂNG NHẬP ==================== */}
-      {mode === 'login' && (
+      {/* ==================== MÀN HÌNH ĐĂNG NHẬP RIÊNG BIỆT ==================== */}
+      {authMode === 'login' && (
         <form onSubmit={handleLogin} className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-4">
-          <h3 className="font-bold text-slate-900 text-sm border-b border-slate-100 pb-2">
-            Đăng nhập bằng Số điện thoại
-          </h3>
+          <div className="border-b border-slate-100 pb-2">
+            <h3 className="font-bold text-slate-900 text-sm">Thông tin đăng nhập</h3>
+            <span className="text-[11px] text-slate-400">Sử dụng số điện thoại của bạn</span>
+          </div>
 
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1">Số điện thoại</label>
@@ -260,11 +233,23 @@ export default function AuthView({ onAuthSuccess }) {
             <span>{loading ? 'Đang xác thực...' : 'Đăng nhập vào FoodMate'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
+
+          {/* Chuyển sang Đăng ký nếu chưa có tài khoản */}
+          <div className="text-center pt-2 border-t border-slate-100">
+            <span className="text-xs text-slate-500">Chưa có tài khoản FoodMate? </span>
+            <button
+              type="button"
+              onClick={() => { setErrorMsg(''); onChangeAuthMode('register'); }}
+              className="text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline"
+            >
+              Đăng ký ngay
+            </button>
+          </div>
         </form>
       )}
 
-      {/* ==================== FORM ĐĂNG KÝ ==================== */}
-      {mode === 'register' && (
+      {/* ==================== MÀN HÌNH ĐĂNG KÝ RIÊNG BIỆT ==================== */}
+      {authMode === 'register' && (
         <form onSubmit={handleRegister} className="space-y-4">
           {/* Bước 1: Thông tin cá nhân cơ bản */}
           <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm space-y-3.5">
@@ -343,12 +328,11 @@ export default function AuthView({ onAuthSuccess }) {
               />
             </div>
 
-            {/* MỤC TẢI ẢNH ĐẠI DIỆN LÊN TỪ THIẾT BỊ (Đã bỏ các icon có sẵn) */}
+            {/* MỤC TẢI ẢNH ĐẠI DIỆN LÊN TỪ THIẾT BỊ */}
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1.5">Ảnh đại diện</label>
 
               {regData.avatarUrl ? (
-                // Đã có ảnh xem trước
                 <div className="flex items-center space-x-3.5 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                   <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-orange-500 shadow-sm shrink-0">
                     <img
@@ -380,7 +364,6 @@ export default function AuthView({ onAuthSuccess }) {
                   </div>
                 </div>
               ) : (
-                // Khung bấm tải ảnh lên
                 <label
                   htmlFor="avatar-file-input"
                   className="flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-orange-500 bg-slate-50 hover:bg-orange-50/40 transition cursor-pointer group text-center"
@@ -397,7 +380,6 @@ export default function AuthView({ onAuthSuccess }) {
                 </label>
               )}
 
-              {/* Input file ẩn */}
               <input
                 id="avatar-file-input"
                 type="file"
@@ -501,6 +483,18 @@ export default function AuthView({ onAuthSuccess }) {
             <Sparkles className="w-4 h-4" />
             <span>{loading ? 'Đang tạo tài khoản...' : 'Hoàn tất đăng ký & Mở khóa tính năng'}</span>
           </button>
+
+          {/* Chuyển sang Đăng nhập nếu đã có tài khoản */}
+          <div className="text-center pt-2 border-t border-slate-100">
+            <span className="text-xs text-slate-500">Đã có tài khoản FoodMate? </span>
+            <button
+              type="button"
+              onClick={() => { setErrorMsg(''); onChangeAuthMode('login'); }}
+              className="text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline"
+            >
+              Đăng nhập tại đây
+            </button>
+          </div>
         </form>
       )}
     </div>

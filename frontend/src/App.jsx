@@ -19,6 +19,7 @@ import { AlertTriangle, PhoneCall, X, Calendar, MapPin, Send } from 'lucide-reac
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('profile'); // Mặc định mở tab profile/auth để người dùng thấy ngay luồng Đăng ký & Đăng nhập
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register' riêng biệt
 
   // Quản lý trạng thái đăng nhập
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -228,7 +229,9 @@ export default function App() {
         <Header 
           onSosClick={() => setSosModal(true)} 
           isLoggedIn={isLoggedIn}
-          onLoginClick={() => setActiveTab('profile')}
+          onOpenLogin={() => { setAuthMode('login'); setActiveTab('profile'); }}
+          onOpenRegister={() => { setAuthMode('register'); setActiveTab('profile'); }}
+          authMode={authMode}
         />
 
         {/* Nội dung chính theo Tab */}
@@ -276,7 +279,11 @@ export default function App() {
                 onLogout={handleLogout}
               />
             ) : (
-              <AuthView onAuthSuccess={handleAuthSuccess} />
+              <AuthView 
+                authMode={authMode}
+                onChangeAuthMode={(newMode) => setAuthMode(newMode)}
+                onAuthSuccess={handleAuthSuccess} 
+              />
             )
           )}
         </main>
