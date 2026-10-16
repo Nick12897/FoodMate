@@ -230,8 +230,6 @@ export default function App() {
           onSosClick={() => setSosModal(true)} 
           isLoggedIn={isLoggedIn}
           onOpenLogin={() => { setAuthMode('login'); setActiveTab('profile'); }}
-          onOpenRegister={() => { setAuthMode('register'); setActiveTab('profile'); }}
-          authMode={authMode}
         />
 
         {/* Nội dung chính theo Tab */}
@@ -291,7 +289,12 @@ export default function App() {
         {/* Bottom Navigation */}
         <BottomNav
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={(tab) => {
+            if (tab === 'profile' && !isLoggedIn) {
+              setAuthMode('login');
+            }
+            setActiveTab(tab);
+          }}
           unreadChatCount={0}
           pendingInvitesCount={invites.filter((i) => i.status === 'pending').length}
           isLoggedIn={isLoggedIn}

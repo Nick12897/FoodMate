@@ -1,7 +1,7 @@
 import React from 'react';
-import { Flame, MapPin, ShieldCheck, AlertCircle, LogIn, UserPlus } from 'lucide-react';
+import { Flame, MapPin, ShieldCheck, AlertCircle } from 'lucide-react';
 
-export default function Header({ onSosClick, isLoggedIn, onOpenLogin, onOpenRegister, authMode }) {
+export default function Header({ onSosClick, isLoggedIn, onOpenLogin }) {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-orange-100 px-3.5 py-2.5 shadow-xs">
       <div className="max-w-md mx-auto flex items-center justify-between">
@@ -22,47 +22,30 @@ export default function Header({ onSosClick, isLoggedIn, onOpenLogin, onOpenRegi
         </div>
 
         {/* Action buttons góc phải */}
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-2">
           {/* Nút SOS khẩn cấp */}
           <button 
             onClick={onSosClick}
             title="Cảnh báo an toàn khẩn cấp"
-            className="flex items-center space-x-1 px-2 py-1.5 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-semibold hover:bg-red-100 transition active:scale-95"
+            className="flex items-center space-x-1 px-2.5 py-1.5 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-semibold hover:bg-red-100 transition active:scale-95"
           >
             <AlertCircle className="w-3.5 h-3.5" />
             <span className="text-[11px]">SOS</span>
           </button>
           
-          {/* Mục Đăng nhập & Đăng ký tách bạch trên góc phải */}
+          {/* Góc phải chỉ hiển thị Đăng nhập (hoặc Đã eKYC khi đã đăng nhập) */}
           {isLoggedIn ? (
             <div className="flex items-center text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-full font-medium border border-emerald-200">
               <ShieldCheck className="w-3.5 h-3.5 mr-1 text-emerald-600" />
               <span>Đã eKYC</span>
             </div>
           ) : (
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={onOpenLogin}
-                className={`px-2.5 py-1.5 rounded-full text-xs font-bold transition active:scale-95 ${
-                  authMode === 'login'
-                    ? 'bg-orange-100 text-orange-700 border border-orange-300 shadow-2xs'
-                    : 'text-slate-600 hover:text-orange-600 hover:bg-slate-100'
-                }`}
-              >
-                Đăng nhập
-              </button>
-              
-              <button
-                onClick={onOpenRegister}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition shadow-xs active:scale-95 ${
-                  authMode === 'register'
-                    ? 'bg-orange-600 text-white ring-2 ring-orange-300'
-                    : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-105 text-white'
-                }`}
-              >
-                Đăng ký
-              </button>
-            </div>
+            <button
+              onClick={onOpenLogin}
+              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-105 text-white text-xs font-bold shadow-xs transition active:scale-95"
+            >
+              <span>Đăng nhập</span>
+            </button>
           )}
         </div>
       </div>
