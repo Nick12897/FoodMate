@@ -34,17 +34,6 @@ export default function ProfileView({ profile, onUpdateProfile, onLogout }) {
     <div className="max-w-md mx-auto px-4 py-4 pb-28">
       {/* User Header Card */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm mb-4 relative">
-        {/* Nút Đăng xuất */}
-        {onLogout && (
-          <button
-            onClick={onLogout}
-            title="Đăng xuất tài khoản"
-            className="absolute top-4 right-4 flex items-center space-x-1 px-2.5 py-1.5 rounded-full bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-semibold transition active:scale-95"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Đăng xuất</span>
-          </button>
-        )}
 
         <div className="flex items-center space-x-4">
           <div className="relative">
@@ -224,6 +213,23 @@ export default function ProfileView({ profile, onUpdateProfile, onLogout }) {
           )}
         </button>
       </form>
+
+      {/* Khu vực Đăng xuất chuyên nghiệp đặt ở dưới cùng */}
+      {onLogout && (
+        <div className="mt-4 pt-2">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="w-full py-3.5 px-4 rounded-2xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 font-bold text-xs shadow-xs transition flex items-center justify-center space-x-2 active:scale-98"
+          >
+            <LogOut className="w-4 h-4 text-rose-500" />
+            <span>Đăng xuất tài khoản</span>
+          </button>
+          <p className="text-center text-[11px] text-slate-400 mt-2.5">
+            FoodMate v1.0 • Ứng dụng kết nối ẩm thực
+          </p>
+        </div>
+      )}
     </div>
   );
 }
