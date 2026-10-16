@@ -229,7 +229,6 @@ export default function App() {
         <Header 
           onSosClick={() => setSosModal(true)} 
           isLoggedIn={isLoggedIn}
-          onOpenLogin={() => { setAuthMode('login'); setActiveTab('profile'); }}
         />
 
         {/* Nội dung chính theo Tab */}
