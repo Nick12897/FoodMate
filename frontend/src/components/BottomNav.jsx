@@ -1,13 +1,13 @@
 import React from 'react';
 import { Flame, UtensilsCrossed, Calendar, MessageSquare, User } from 'lucide-react';
 
-export default function BottomNav({ activeTab, setActiveTab, unreadChatCount = 0, pendingInvitesCount = 1 }) {
+export default function BottomNav({ activeTab, setActiveTab, unreadChatCount = 0, pendingInvitesCount = 1, isLoggedIn = true }) {
   const tabs = [
     { id: 'feed', label: 'Quẹt gu', icon: Flame },
     { id: 'restaurants', label: 'Quán ngon', icon: UtensilsCrossed },
     { id: 'invites', label: 'Bàn ăn', icon: Calendar, badge: pendingInvitesCount },
     { id: 'chat', label: 'Trò chuyện', icon: MessageSquare, badge: unreadChatCount },
-    { id: 'profile', label: 'Hồ sơ gu', icon: User },
+    { id: 'profile', label: isLoggedIn ? 'Hồ sơ gu' : 'Đăng nhập', icon: User },
   ];
 
   return (

@@ -10,6 +10,27 @@ class VerifyOtpRequest(BaseModel):
     session_id: str
     otp_code: str = Field(..., example="123456")
 
+class RegisterRequest(BaseModel):
+    phone_number: str = Field(..., example="+84901234567")
+    full_name: str = Field(..., example="Nguyễn Văn A")
+    password: Optional[str] = "123456"
+    age: Optional[int] = 24
+    gender: Optional[str] = "male" # 'male', 'female', 'other'
+    occupation: Optional[str] = "Nhân viên văn phòng"
+    bio: Optional[str] = "Tìm bạn ăn uống cuối tuần"
+    avatar_url: Optional[str] = None
+    
+    # Gu ẩm thực ban đầu (Onboarding Taste Profile)
+    favorite_dish: Optional[str] = "Lẩu Thái hải sản"
+    spicy_level: Optional[int] = Field(2, ge=1, le=5)
+    budget_tier: Optional[str] = "BUDGET_T2"
+    cuisines: Optional[List[str]] = ["VN_TRAD", "HOTPOT"]
+    connection_purpose: Optional[str] = "food_buddy"
+
+class LoginRequest(BaseModel):
+    phone_number: str = Field(..., example="+84901234567")
+    password: Optional[str] = None
+
 class UserSummary(BaseModel):
     id: str
     phone_number: str

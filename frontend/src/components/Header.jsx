@@ -1,7 +1,7 @@
 import React from 'react';
 import { Flame, MapPin, ShieldCheck, AlertCircle } from 'lucide-react';
 
-export default function Header({ onSosClick }) {
+export default function Header({ onSosClick, isLoggedIn, onLoginClick }) {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-orange-100 px-4 py-3 shadow-xs">
       <div className="max-w-md mx-auto flex items-center justify-between">
@@ -32,10 +32,19 @@ export default function Header({ onSosClick }) {
             <span>SOS</span>
           </button>
           
-          <div className="flex items-center text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-full font-medium border border-emerald-200">
-            <ShieldCheck className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-            <span>Đã eKYC</span>
-          </div>
+          {isLoggedIn ? (
+            <div className="flex items-center text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-full font-medium border border-emerald-200">
+              <ShieldCheck className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+              <span>Đã eKYC</span>
+            </div>
+          ) : (
+            <button
+              onClick={onLoginClick}
+              className="flex items-center space-x-1 px-3 py-1.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-xs transition active:scale-95"
+            >
+              <span>Đăng nhập</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

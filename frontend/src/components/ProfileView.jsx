@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
-import { User, Flame, DollarSign, Utensils, ShieldCheck, Save, Sliders, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Flame, DollarSign, Utensils, ShieldCheck, Save, Sliders, Check, LogOut } from 'lucide-react';
 import { MASTER_CUISINES, BUDGET_TIERS } from '../data/mockData';
 
-export default function ProfileView({ profile, onUpdateProfile }) {
+export default function ProfileView({ profile, onUpdateProfile, onLogout }) {
   const [formData, setFormData] = useState({ ...profile });
   const [taste, setTaste] = useState({ ...profile.tasteProfile });
   const [isSaved, setIsSaved] = useState(false);
+
+  // Đồng bộ lại khi đổi tài khoản đăng nhập
+  useEffect(() => {
+    setFormData({ ...profile });
+    setTaste({ ...profile.tasteProfile });
+  }, [profile]);
 
   const toggleCuisine = (code) => {
     setTaste((prev) => {
@@ -27,7 +33,19 @@ export default function ProfileView({ profile, onUpdateProfile }) {
   return (
     <div className="max-w-md mx-auto px-4 py-4 pb-28">
       {/* User Header Card */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm mb-4">
+      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm mb-4 relative">
+        {/* Nút Đăng xuất */}
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            title="Đăng xuất tài khoản"
+            className="absolute top-4 right-4 flex items-center space-x-1 px-2.5 py-1.5 rounded-full bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-semibold transition active:scale-95"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Đăng xuất</span>
+          </button>
+        )}
+
         <div className="flex items-center space-x-4">
           <div className="relative">
             <img
@@ -48,7 +66,7 @@ export default function ProfileView({ profile, onUpdateProfile }) {
             </div>
             <p className="text-xs text-slate-500">{formData.occupation}</p>
             <div className="mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Điểm tin cậy: {formData.trustScore}/100
+              Điểm tin cậy: {formData.trustScore || 100}/100
             </div>
           </div>
         </div>

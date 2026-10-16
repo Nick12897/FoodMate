@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import DiscoveryFeed from './components/DiscoveryFeed';
 import ProfileView from './components/ProfileView';
+import AuthView from './components/AuthView';
 import MealInvitesView from './components/MealInvitesView';
 import ChatView from './components/ChatView';
 import RestaurantsView from './components/RestaurantsView';
@@ -17,30 +18,82 @@ import { api } from './services/api';
 import { AlertTriangle, PhoneCall, X, Calendar, MapPin, Send } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'restaurants' | 'invites' | 'chat' | 'profile'
-  const [profile, setProfile] = useState(INITIAL_MY_PROFILE);
+  const [activeTab, setActiveTab] = useState('profile'); // Mặc định mở tab profile/auth để người dùng thấy ngay luồng Đăng ký & Đăng nhập
+
+  // Quản lý trạng thái đăng nhập
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!localStorage.getItem('foodmate_user');
+  });
+
+  const [profile, setProfile] = useState(() => {
+    const saved = localStorage.getItem('foodmate_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return INITIAL_MY_PROFILE;
+      }
+    }
+    return INITIAL_MY_PROFILE;
+  });
+
   const [cards, setCards] = useState(MOCK_DISCOVERY_CARDS);
   const [invites, setInvites] = useState(MOCK_INVITES);
   const [chats, setChats] = useState(MOCK_CHATS);
 
   // Nạp dữ liệu thực từ Backend Python + SQLite
-  React.useEffect(() => {
+  useEffect(() => {
     async function loadBackendData() {
-      const liveCards = await api.getFeed();
+      const currentUserId = profile?.id || 'user-me';
+      const liveCards = await api.getFeed(10.7769, 106.7009, currentUserId);
       if (liveCards && liveCards.length > 0) {
         setCards(liveCards);
       }
-      const liveInvites = await api.getInvites();
+      const liveInvites = await api.getInvites(currentUserId);
       if (liveInvites && liveInvites.length > 0) {
         setInvites(liveInvites);
       }
     }
     loadBackendData();
-  }, []);
+  }, [profile?.id]);
+
+  // Xử lý Đăng nhập / Đăng ký thành công
+  const handleAuthSuccess = (userData) => {
+    const formattedUser = {
+      id: userData.id,
+      fullName: userData.full_name || userData.fullName,
+      phoneNumber: userData.phone_number || userData.phoneNumber,
+      age: userData.age || 24,
+      gender: userData.gender || 'other',
+      occupation: userData.occupation || 'Thành viên FoodMate',
+      bio: userData.bio || '',
+      avatarUrl: userData.avatar_url || userData.avatarUrl,
+      trustScore: userData.trust_score || userData.trustScore || 100,
+      isVerified: userData.is_verified ?? true,
+      tasteProfile: userData.taste_profile || userData.tasteProfile || {
+        cuisines: ['VN_TRAD', 'HOTPOT'],
+        spicyLevel: 2,
+        budgetTier: 'BUDGET_T2',
+        favoriteDish: 'Lẩu nấm',
+        maxDistanceKm: 10,
+      }
+    };
+
+    setProfile(formattedUser);
+    setIsLoggedIn(true);
+    localStorage.setItem('foodmate_user', JSON.stringify(formattedUser));
+    setActiveTab('profile'); // Hiển thị hồ sơ vừa đăng nhập
+  };
+
+  // Xử lý Đăng xuất
+  const handleLogout = () => {
+    localStorage.removeItem('foodmate_user');
+    setIsLoggedIn(false);
+  };
 
   // Modals
   const [sosModal, setSosModal] = useState(false);
-  const [inviteModalData, setInviteModalData] = useState(null); // { partnerName, restaurantName, etc. }
+  const [inviteModalData, setInviteModalData] = useState(null);
   const [inviteForm, setInviteForm] = useState({
     scheduledAt: '19:00 - Tối Thứ Bảy này',
     paymentPolicy: 'Chia đôi hóa đơn (50/50)',
@@ -50,11 +103,11 @@ export default function App() {
   // Handler Swipe
   const handleSwipe = (cardId, action) => {
     console.log(`Swiped ${action} on ${cardId}`);
+    api.swipe(cardId, action, profile?.id || 'user-me');
   };
 
   // Mở Chat từ Match Modal
   const handleOpenChatWith = (targetUser) => {
-    // Kiểm tra xem chat đã có chưa, nếu chưa thì tạo mới
     const existing = chats.find((c) => c.partnerId === targetUser.id);
     if (!existing) {
       const newChat = {
@@ -104,6 +157,7 @@ export default function App() {
 
   // Handler Check-in
   const handleCheckIn = (inviteId) => {
+    api.checkIn(inviteId, 10.7831, 106.6982, profile?.id || 'user-me');
     setInvites((prev) =>
       prev.map((inv) =>
         inv.id === inviteId
@@ -127,7 +181,7 @@ export default function App() {
     setInviteModalData({
       restaurantName: restaurant.name,
       restaurantAddress: restaurant.address,
-      partnerName: 'Lê Mai Phương', // Mặc định bạn bè gần nhất
+      partnerName: 'Lê Mai Phương',
     });
   };
 
@@ -171,7 +225,11 @@ export default function App() {
       {/* Khung mô phỏng kích thước Mobile App hiện đại */}
       <div className="w-full max-w-md bg-slate-50 min-h-screen relative shadow-2xl flex flex-col">
         {/* Header trên cùng */}
-        <Header onSosClick={() => setSosModal(true)} />
+        <Header 
+          onSosClick={() => setSosModal(true)} 
+          isLoggedIn={isLoggedIn}
+          onLoginClick={() => setActiveTab('profile')}
+        />
 
         {/* Nội dung chính theo Tab */}
         <main className="flex-1">
@@ -207,10 +265,19 @@ export default function App() {
           )}
 
           {activeTab === 'profile' && (
-            <ProfileView
-              profile={profile}
-              onUpdateProfile={(updated) => setProfile(updated)}
-            />
+            isLoggedIn ? (
+              <ProfileView
+                profile={profile}
+                onUpdateProfile={(updated) => {
+                  setProfile(updated);
+                  localStorage.setItem('foodmate_user', JSON.stringify(updated));
+                  api.updateTasteProfile(updated.tasteProfile, updated.id);
+                }}
+                onLogout={handleLogout}
+              />
+            ) : (
+              <AuthView onAuthSuccess={handleAuthSuccess} />
+            )
           )}
         </main>
 
@@ -220,6 +287,7 @@ export default function App() {
           setActiveTab={setActiveTab}
           unreadChatCount={0}
           pendingInvitesCount={invites.filter((i) => i.status === 'pending').length}
+          isLoggedIn={isLoggedIn}
         />
 
         {/* MODAL SOS KHẨN CẤP */}
