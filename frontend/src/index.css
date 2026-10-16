@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased font-sans selection:bg-brand-500 selection:text-white;
+  }
+}
+
+/* Custom Animation cho Swipe Cards */
+.card-swipe-like {
+  transform: translate(120px, -20px) rotate(15deg);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-swipe-pass {
+  transform: translate(-120px, -20px) rotate(-15deg);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
