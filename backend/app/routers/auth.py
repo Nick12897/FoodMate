@@ -137,7 +137,76 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
         }
     }
 
-@router.get("/sample-users")
+from ..schemas import SendOtpRequest, VerifyOtpRequest, RegisterRequest, LoginRequest, SocialLoginRequest
+
+@router.post("/social-login")
+def social_login(req: SocialLoginRequest, db: Session = Depends(get_db)):
+    """
+    Đăng nhập hoặc đăng ký nhanh qua Google / Facebook / Apple.
+    """
+    social_phone = f"+84_{req.provider}_{req.social_id or uuid.uuid4().hex[:6]}"
+    user = db.query(User).filter(User.phone_number == social_phone).first()
+
+    if not user:
+        user = User(
+            id=f"user-{req.provider}-{uuid.uuid4().hex[:6]}",
+            phone_number=social_phone,
+            full_name=req.full_name or f"User {req.provider.capitalize()}",
+            gender="other",
+            avatar_url=req.avatar_url or DEFAULT_AVATARS[0],
+            occupation=f"Tài khoản {req.provider.capitalize()}",
+            bio=f"Đăng nhập qua {req.provider.capitalize()} FoodMate",
+            role="member",
+            is_verified=True,
+            trust_score=100,
+            latitude=10.7769,
+            longitude=106.7009
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        taste = UserTasteProfile(
+            user_id=user.id,
+            cuisines_json=json.dumps(["VN_TRAD", "HOTPOT"]),
+            spicy_level=2,
+            budget_tier="BUDGET_T2",
+            connection_purpose="food_buddy",
+            favorite_dish="Ẩm thực Việt & Lẩu",
+            max_distance_km=10
+        )
+        db.add(taste)
+        db.commit()
+
+    taste = user.taste_profile
+
+    return {
+        "success": True,
+        "message": f"Đăng nhập qua {req.provider.capitalize()} thành công!",
+        "data": {
+            "access_token": f"token_foodmate_{user.id}",
+            "user": {
+                "id": user.id,
+                "phone_number": user.phone_number,
+                "full_name": user.full_name,
+                "age": 24,
+                "gender": user.gender,
+                "occupation": user.occupation,
+                "bio": user.bio,
+                "avatar_url": user.avatar_url,
+                "trust_score": user.trust_score,
+                "is_verified": user.is_verified,
+                "taste_profile": {
+                    "cuisines": taste.cuisines if taste else ["VN_TRAD"],
+                    "spicy_level": taste.spicy_level if taste else 2,
+                    "budget_tier": taste.budget_tier if taste else "BUDGET_T2",
+                    "favorite_dish": taste.favorite_dish if taste else "",
+                    "connection_purpose": taste.connection_purpose if taste else "food_buddy",
+                    "max_distance_km": taste.max_distance_km if taste else 10
+                }
+            }
+        }
+    }
 def get_sample_users(db: Session = Depends(get_db)):
     """
     Danh sách tài khoản mẫu để đăng nhập nhanh khi thử nghiệm.

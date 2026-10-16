@@ -32,6 +32,27 @@ export const api = {
     }
   },
 
+  async socialLogin(provider, profile = {}) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/social-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider,
+          full_name: profile.fullName || `Thành viên ${provider.toUpperCase()}`,
+          email: profile.email || `${provider}_member@foodmate.vn`,
+          avatar_url: profile.avatarUrl || '',
+          social_id: profile.socialId || `${provider}_${Date.now()}`
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.detail || 'Đăng nhập không thành công');
+      return json;
+    } catch (e) {
+      throw e;
+    }
+  },
+
   async getSampleUsers() {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/sample-users`);

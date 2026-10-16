@@ -31,6 +31,13 @@ class LoginRequest(BaseModel):
     phone_number: str = Field(..., example="+84901234567")
     password: Optional[str] = None
 
+class SocialLoginRequest(BaseModel):
+    provider: str = Field(..., example="google") # 'google', 'facebook', 'apple'
+    full_name: Optional[str] = "Thành viên FoodMate"
+    email: Optional[str] = None
+    avatar_url: Optional[str] = None
+    social_id: Optional[str] = None
+
 class UserSummary(BaseModel):
     id: str
     phone_number: str
