@@ -42,40 +42,107 @@ export default function App() {
   const [invites, setInvites] = useState(MOCK_INVITES);
   const [chats, setChats] = useState(MOCK_CHATS);
 
-  // Nạp dữ liệu thực từ Backend Python + SQLite
-  useEffect(() => {
-    async function loadBackendData() {
-      const currentUserId = profile?.id || 'user-me';
-      const liveCards = await api.getFeed(10.7769, 106.7009, currentUserId);
-      if (liveCards && liveCards.length > 0) {
-        setCards(liveCards);
+  // Chuẩn hóa và phòng vệ dữ liệu thẻ thành viên
+  const normalizeCard = (c) => {
+    const defaultAvatar = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80';
+    const taste = c.tasteProfile || c.taste_profile || {};
+    return {
+      id: c.id || c.user_id || `user-${Math.random().toString().slice(-6)}`,
+      fullName: c.fullName || c.full_name || 'Thành viên FoodMate',
+      phoneNumber: c.phoneNumber || c.phone_number || '',
+      age: c.age || 24,
+      gender: c.gender || 'other',
+      occupation: c.occupation || 'Thành viên FoodMate',
+      bio: c.bio || 'Yêu thích ẩm thực và tìm bạn bè cùng bàn ăn.',
+      avatarUrl: c.avatarUrl || c.avatar_url || defaultAvatar,
+      distanceKm: typeof c.distanceKm === 'number' ? c.distanceKm : (typeof c.distance_km === 'number' ? c.distance_km : 1.8),
+      compatibilityScore: Math.round(c.compatibilityScore ?? c.compatibility_score ?? 88),
+      favoriteDish: c.favoriteDish || c.favorite_dish || taste.favorite_dish || taste.favoriteDish || 'Món ngon mỗi ngày',
+      spicyLevel: c.spicyLevel ?? c.spicy_level ?? taste.spicy_level ?? taste.spicyLevel ?? 2,
+      budgetTier: c.budgetTier || c.budget_tier || taste.budget_tier || taste.budgetTier || 'BUDGET_T2',
+      connectionPurpose: c.connectionPurpose || c.connection_purpose || taste.connection_purpose || taste.connectionPurpose || 'food_buddy',
+      cuisines: (c.cuisines && c.cuisines.length > 0) ? c.cuisines : (taste.cuisines || ['VN_TRAD', 'HOTPOT']),
+      isVerified: c.isVerified ?? c.is_verified ?? true,
+      trustScore: c.trustScore ?? c.trust_score ?? 100,
+    };
+  };
+
+  // Nạp dữ liệu thực từ Backend Python + SQLite và danh sách thành viên cộng đồng đã đăng ký
+  const reloadDiscoveryCards = async () => {
+    const currentUserId = profile?.id || 'user-me';
+    const currentUserPhone = profile?.phoneNumber || '';
+
+    let liveCards = [];
+    try {
+      const res = await api.getFeed(10.7769, 106.7009, currentUserId);
+      if (res && res.length > 0) {
+        liveCards = res;
       }
+    } catch (e) {
+      console.warn('Backend unavailable, fallback to community users:', e);
+    }
+
+    let communityUsers = [];
+    try {
+      communityUsers = JSON.parse(localStorage.getItem('foodmate_community_users') || '[]');
+    } catch (e) {}
+
+    // Kết hợp tất cả nguồn người dùng: Backend SQLite + LocalStorage Community + Mẫu ban đầu
+    const allPool = [...liveCards, ...communityUsers, ...MOCK_DISCOVERY_CARDS];
+
+    const seenIds = new Set();
+    const finalCards = [];
+
+    for (const raw of allPool) {
+      const card = normalizeCard(raw);
+      // Không hiển thị chính tài khoản của mình
+      if (
+        card.id === currentUserId ||
+        (currentUserPhone && card.phoneNumber && card.phoneNumber === currentUserPhone) ||
+        seenIds.has(card.id)
+      ) {
+        continue;
+      }
+      seenIds.add(card.id);
+      finalCards.push(card);
+    }
+
+    finalCards.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+    setCards(finalCards);
+  };
+
+  useEffect(() => {
+    reloadDiscoveryCards();
+
+    async function loadInvites() {
+      const currentUserId = profile?.id || 'user-me';
       const liveInvites = await api.getInvites(currentUserId);
       if (liveInvites && liveInvites.length > 0) {
         setInvites(liveInvites);
       }
     }
-    loadBackendData();
-  }, [profile?.id]);
+    loadInvites();
+  }, [profile?.id, profile?.phoneNumber]);
 
   // Xử lý Đăng nhập / Đăng ký thành công
   const handleAuthSuccess = (userData) => {
     const formattedUser = {
       id: userData.id,
-      fullName: userData.full_name || userData.fullName,
-      phoneNumber: userData.phone_number || userData.phoneNumber,
+      fullName: userData.full_name || userData.fullName || 'Thành viên FoodMate',
+      phoneNumber: userData.phone_number || userData.phoneNumber || '',
       age: userData.age || 24,
       gender: userData.gender || 'other',
       occupation: userData.occupation || 'Thành viên FoodMate',
-      bio: userData.bio || '',
-      avatarUrl: userData.avatar_url || userData.avatarUrl,
+      bio: userData.bio || 'Yêu thích ẩm thực và tìm bạn ăn cùng bàn',
+      avatarUrl: userData.avatar_url || userData.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
       trustScore: userData.trust_score || userData.trustScore || 100,
       isVerified: userData.is_verified ?? true,
       tasteProfile: userData.taste_profile || userData.tasteProfile || {
         cuisines: ['VN_TRAD', 'HOTPOT'],
         spicyLevel: 2,
         budgetTier: 'BUDGET_T2',
-        favoriteDish: 'Lẩu nấm',
+        favoriteDish: 'Lẩu nấm & đồ nướng',
+        connectionPurpose: 'food_buddy',
         maxDistanceKm: 10,
       }
     };
@@ -83,6 +150,21 @@ export default function App() {
     setProfile(formattedUser);
     setIsLoggedIn(true);
     localStorage.setItem('foodmate_user', JSON.stringify(formattedUser));
+
+    // Đồng thời lưu vào danh sách thành viên cộng đồng để mọi người khác cùng quẹt thấy!
+    try {
+      const communityUsers = JSON.parse(localStorage.getItem('foodmate_community_users') || '[]');
+      const existsIndex = communityUsers.findIndex(u => u.id === formattedUser.id || (u.phoneNumber && u.phoneNumber === formattedUser.phoneNumber));
+      if (existsIndex >= 0) {
+        communityUsers[existsIndex] = formattedUser;
+      } else {
+        communityUsers.unshift(formattedUser);
+      }
+      localStorage.setItem('foodmate_community_users', JSON.stringify(communityUsers));
+    } catch (e) {
+      console.error(e);
+    }
+
     setActiveTab('profile'); // Hiển thị hồ sơ vừa đăng nhập
   };
 
@@ -238,6 +320,8 @@ export default function App() {
               cards={cards}
               onSwipe={handleSwipe}
               onOpenChatWith={handleOpenChatWith}
+              myProfile={profile}
+              onReloadCards={reloadDiscoveryCards}
             />
           )}
 

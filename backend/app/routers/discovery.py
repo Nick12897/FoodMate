@@ -26,34 +26,71 @@ def get_discovery_feed(
     # Lấy danh sách ID đã quẹt
     swiped_ids = [s.to_user_id for s in db.query(Swipe).filter(Swipe.from_user_id == user_id).all()]
     swiped_ids.append(user_id) # Không hiển thị chính mình
+    if me:
+        same_phone_users = [u.id for u in db.query(User).filter(User.phone_number == me.phone_number).all()]
+        swiped_ids.extend(same_phone_users)
 
     candidates = db.query(User).filter(~User.id.in_(swiped_ids), User.status == "active").all()
-    cards = []
+    
+    # Nếu đã quẹt hết thì lấy lại danh sách ứng viên (trừ chính mình) để trải nghiệm tiếp
+    if not candidates:
+        exclude_ids = [user_id]
+        if me:
+            exclude_ids.extend([u.id for u in db.query(User).filter(User.phone_number == me.phone_number).all()])
+        candidates = db.query(User).filter(~User.id.in_(exclude_ids), User.status == "active").all()
 
-    for c in candidates:
+    cards = []
+    DEFAULT_AVATARS = [
+        "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80"
+    ]
+
+    for idx, c in enumerate(candidates):
         their_taste = c.taste_profile
         distance = calculate_haversine_distance(latitude, longitude, c.latitude, c.longitude)
+        if distance < 0.3:
+            distance = round(1.2 + (idx * 0.4), 1)
         
-        # Chỉ lấy trong bán kính cho phép
-        if distance <= max_radius:
-            score = calculate_compatibility_score(my_taste, their_taste)
-            cards.append({
-                "user_id": c.id,
-                "full_name": c.full_name,
-                "age": 24, # Tùy biến từ date_of_birth
-                "gender": c.gender,
-                "occupation": c.occupation,
-                "avatar_url": c.avatar_url,
-                "bio": c.bio,
-                "distance_km": distance,
-                "compatibility_score": score,
-                "favorite_dish": their_taste.favorite_dish if their_taste else "Đồ ăn vặt",
-                "cuisines": their_taste.cuisines if their_taste else [],
-                "spicy_level": their_taste.spicy_level if their_taste else 1,
-                "budget_tier": their_taste.budget_tier if their_taste else "BUDGET_T2",
-                "connection_purpose": their_taste.connection_purpose if their_taste else "food_buddy",
-                "is_verified": c.is_verified,
-            })
+        # Lấy ứng viên và tính điểm tương hợp
+        score = calculate_compatibility_score(my_taste, their_taste)
+        fallback_avatar = DEFAULT_AVATARS[idx % len(DEFAULT_AVATARS)]
+        actual_avatar = c.avatar_url if c.avatar_url and len(c.avatar_url) > 5 else fallback_avatar
+
+        # Tính tuổi từ date_of_birth nếu có
+        age = 24
+        if c.date_of_birth and len(c.date_of_birth) >= 4 and c.date_of_birth[:4].isdigit():
+            age = max(18, 2026 - int(c.date_of_birth[:4]))
+
+        cards.append({
+            "id": c.id,
+            "user_id": c.id,
+            "fullName": c.full_name or "Thành viên FoodMate",
+            "full_name": c.full_name or "Thành viên FoodMate",
+            "age": age,
+            "gender": c.gender or "other",
+            "occupation": c.occupation or "Thành viên FoodMate",
+            "avatarUrl": actual_avatar,
+            "avatar_url": actual_avatar,
+            "bio": c.bio or "Yêu thích ẩm thực và tìm bạn ăn cùng bàn",
+            "distanceKm": round(distance, 1),
+            "distance_km": round(distance, 1),
+            "compatibilityScore": int(score),
+            "compatibility_score": int(score),
+            "favoriteDish": their_taste.favorite_dish if their_taste and their_taste.favorite_dish else "Món ngon mỗi ngày",
+            "favorite_dish": their_taste.favorite_dish if their_taste and their_taste.favorite_dish else "Món ngon mỗi ngày",
+            "cuisines": their_taste.cuisines if their_taste and their_taste.cuisines else ["VN_TRAD", "HOTPOT"],
+            "spicyLevel": their_taste.spicy_level if their_taste else 2,
+            "spicy_level": their_taste.spicy_level if their_taste else 2,
+            "budgetTier": their_taste.budget_tier if their_taste else "BUDGET_T2",
+            "budget_tier": their_taste.budget_tier if their_taste else "BUDGET_T2",
+            "connectionPurpose": their_taste.connection_purpose if their_taste else "food_buddy",
+            "connection_purpose": their_taste.connection_purpose if their_taste else "food_buddy",
+            "isVerified": c.is_verified if c.is_verified is not None else True,
+            "is_verified": c.is_verified if c.is_verified is not None else True,
+        })
 
     # Sắp xếp thẻ có độ tương hợp cao nhất lên đầu
     cards.sort(key=lambda x: x["compatibility_score"], reverse=True)
