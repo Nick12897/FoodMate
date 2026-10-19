@@ -9,10 +9,8 @@ import ChatView from './components/ChatView';
 import RestaurantsView from './components/RestaurantsView';
 import {
   INITIAL_MY_PROFILE,
-  MOCK_DISCOVERY_CARDS,
   MOCK_RESTAURANTS,
   MOCK_INVITES,
-  MOCK_CHATS,
 } from './data/mockData';
 import { api } from './services/api';
 import { AlertTriangle, PhoneCall, X, Calendar, MapPin, Send } from 'lucide-react';
@@ -38,17 +36,20 @@ export default function App() {
     return INITIAL_MY_PROFILE;
   });
 
-  const [cards, setCards] = useState(MOCK_DISCOVERY_CARDS);
+  const [cards, setCards] = useState([]);
   const [invites, setInvites] = useState(MOCK_INVITES);
   const [chats, setChats] = useState(() => {
     try {
       const saved = localStorage.getItem('foodmate_chats');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          // Chỉ giữ lại những người thực sự đã quẹt được, loại bỏ các đoạn chat demo cũ
+          return parsed.filter((c) => c.id !== 'chat-01' && c.id !== 'chat-02' && c.partnerName !== 'Lê Mai Phương' && c.partnerName !== 'Tuấn Nam');
+        }
       }
     } catch (e) {}
-    return MOCK_CHATS;
+    return [];
   });
   const [activeChatId, setActiveChatId] = useState(null);
 
@@ -97,8 +98,9 @@ export default function App() {
       communityUsers = JSON.parse(localStorage.getItem('foodmate_community_users') || '[]');
     } catch (e) {}
 
-    // Kết hợp tất cả nguồn người dùng: Backend SQLite + LocalStorage Community + Mẫu ban đầu
-    const allPool = [...liveCards, ...communityUsers, ...MOCK_DISCOVERY_CARDS];
+    // Chỉ lấy từ nguồn người dùng THỰC SỰ ĐÃ ĐĂNG KÝ (Backend SQLite + LocalStorage Community)
+    // Tuyệt đối không nạp thẻ demo để bám sát thực tế 100%
+    const allPool = [...liveCards, ...communityUsers];
 
     const seenIds = new Set();
     const finalCards = [];

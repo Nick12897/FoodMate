@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, X, Star, MapPin, Flame, Utensils, Sparkles, ShieldCheck, RotateCcw, MessageCircle, Check } from 'lucide-react';
+import { Heart, X, Star, MapPin, Flame, Utensils, Sparkles, ShieldCheck, RotateCcw, MessageCircle, Check, Users } from 'lucide-react';
 import { MASTER_CUISINES } from '../data/mockData';
 
 export default function DiscoveryFeed({ cards = [], onSwipe, onOpenChatWith, myProfile, onReloadCards }) {
@@ -49,7 +49,32 @@ export default function DiscoveryFeed({ cards = [], onSwipe, onOpenChatWith, myP
     }
   };
 
-  // Màn hình khi đã quẹt hết thẻ
+  // Màn hình khi chưa có tài khoản nào đăng ký trên hệ thống (Thực tế, không dùng card demo)
+  if (cards.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 text-center max-w-md mx-auto">
+        <div className="w-20 h-20 rounded-full bg-orange-100/80 flex items-center justify-center text-orange-500 mb-4 shadow-sm border border-orange-200">
+          <Users className="w-10 h-10" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-800 mb-2">Chưa có thành viên nào để quẹt gu</h3>
+        <p className="text-xs text-slate-500 mb-6 max-w-xs leading-relaxed">
+          Hiện tại chưa có người dùng nào khác đăng ký trên hệ thống. Khi có thành viên mới tham gia hoặc bạn bè đăng ký tài khoản, hồ sơ của họ sẽ xuất hiện tại đây ngay lập tức!
+        </p>
+        <button
+          onClick={() => {
+            setCurrentIndex(0);
+            if (onReloadCards) onReloadCards();
+          }}
+          className="w-full max-w-xs py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-2xl font-bold text-xs shadow-md shadow-orange-500/30 hover:brightness-105 transition active:scale-98 flex items-center justify-center space-x-2"
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>Làm mới & Kiểm tra người dùng mới</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Màn hình khi đã quẹt hết thẻ trong danh sách hiện tại
   if (!currentCard || currentIndex >= cards.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 text-center max-w-md mx-auto">
