@@ -27,17 +27,10 @@ def get_discovery_feed(
     swiped_ids = [s.to_user_id for s in db.query(Swipe).filter(Swipe.from_user_id == user_id).all()]
     swiped_ids.append(user_id) # Không hiển thị chính mình
     if me:
-        same_phone_users = [u.id for u in db.query(User).filter(User.phone_number == me.phone_number).all()]
-        swiped_ids.extend(same_phone_users)
+        same_users = [u.id for u in db.query(User).filter((User.phone_number == me.phone_number) | (User.full_name == me.full_name)).all()]
+        swiped_ids.extend(same_users)
 
     candidates = db.query(User).filter(~User.id.in_(swiped_ids), User.status == "active").all()
-    
-    # Nếu đã quẹt hết thì lấy lại danh sách ứng viên (trừ chính mình) để trải nghiệm tiếp
-    if not candidates:
-        exclude_ids = [user_id]
-        if me:
-            exclude_ids.extend([u.id for u in db.query(User).filter(User.phone_number == me.phone_number).all()])
-        candidates = db.query(User).filter(~User.id.in_(exclude_ids), User.status == "active").all()
 
     cards = []
     DEFAULT_AVATARS = [

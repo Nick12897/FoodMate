@@ -88,10 +88,21 @@ export default function App() {
     };
   };
 
+  // Chuẩn hóa chuỗi loại bỏ dấu tiếng Việt để so sánh danh tính chính xác
+  const normalizeStr = (s) =>
+    (s || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'd')
+      .toLowerCase()
+      .trim();
+
   // Nạp dữ liệu thực từ Backend Python + SQLite và danh sách thành viên cộng đồng đã đăng ký
   const reloadDiscoveryCards = async () => {
     const currentUserId = profile?.id || 'user-me';
-    const currentUserPhone = profile?.phoneNumber || '';
+    const currentUserPhoneClean = (profile?.phoneNumber || '').replace(/\D/g, '');
+    const currentUserNameNorm = normalizeStr(profile?.fullName || '');
 
     let liveCards = [];
     try {
@@ -117,12 +128,19 @@ export default function App() {
 
     for (const raw of allPool) {
       const card = normalizeCard(raw);
-      // Không hiển thị chính tài khoản của mình
-      if (
+      const cardPhoneClean = (card.phoneNumber || '').replace(/\D/g, '');
+      const cardNameNorm = normalizeStr(card.fullName || '');
+
+      // Tuyệt đối không hiển thị chính tài khoản của mình
+      // Lọc đa tầng: theo ID, theo mã me-user/user-me, theo Số điện thoại và theo Họ tên (không dấu)
+      const isSelf =
         card.id === currentUserId ||
-        (currentUserPhone && card.phoneNumber && card.phoneNumber === currentUserPhone) ||
-        seenIds.has(card.id)
-      ) {
+        card.id === 'user-me' ||
+        card.id === 'me-user-01' ||
+        (currentUserPhoneClean && cardPhoneClean && currentUserPhoneClean === cardPhoneClean) ||
+        (currentUserNameNorm && cardNameNorm && currentUserNameNorm === cardNameNorm);
+
+      if (isSelf || seenIds.has(card.id)) {
         continue;
       }
       seenIds.add(card.id);
@@ -367,6 +385,7 @@ export default function App() {
       restaurantAddress: restaurant.address,
       partnerName: defaultPartner.partnerName,
       partnerAvatar: defaultPartner.partnerAvatar,
+      partnerId: defaultPartner.partnerId,
     });
   };
 
@@ -376,6 +395,7 @@ export default function App() {
       restaurantAddress: '71 Mạc Đĩnh Chi, P. Đa Kao, Quận 1',
       partnerName: chat.partnerName,
       partnerAvatar: chat.partnerAvatar,
+      partnerId: chat.partnerId,
     });
   };
 
@@ -407,9 +427,21 @@ export default function App() {
       } catch (e) {}
       return updated;
     });
+
+    // Tự động đồng bộ gửi tin nhắn vào hộp thư Trò chuyện với bạn ăn
+    const partnerId = inviteModalData.partnerId;
+    const partnerName = inviteModalData.partnerName;
+    const targetChat = chats.find(c => (partnerId && c.partnerId === partnerId) || c.partnerName === partnerName);
+    if (targetChat) {
+      handleSendMessage(
+        targetChat.id,
+        `🍽️ Mình vừa tạo lời mời đi ăn cùng bạn tại ${inviteModalData.restaurantName} (${inviteModalData.restaurantAddress}) vào ${inviteForm.scheduledAt}! Bạn hãy kiểm tra mục Bàn Ăn để xác nhận nhé!`
+      );
+    }
+
     setInviteModalData(null);
     setActiveTab('invites');
-    alert('Lời mời đi ăn đã được gửi thành công! Chờ đối phương xác nhận.');
+    alert('Lời mời đi ăn đã được gửi thành công! Lời nhắn rủ ăn đã được gửi tự động vào hộp thư trò chuyện.');
   };
 
   return (
@@ -437,7 +469,9 @@ export default function App() {
           {activeTab === 'restaurants' && (
             <RestaurantsView
               restaurants={MOCK_RESTAURANTS}
+              chats={chats}
               onInviteAtRestaurant={handleInviteAtRestaurant}
+              onGoToDiscovery={() => setActiveTab('feed')}
             />
           )}
 
@@ -588,11 +622,40 @@ export default function App() {
               </div>
 
               {/* Thông tin đối tác & quán */}
-              <div className="bg-orange-50/80 p-3 rounded-2xl border border-orange-100 text-xs space-y-1">
-                <div>
-                  <span className="text-slate-500">Mời bạn: </span>
-                  <strong className="text-slate-900 font-bold">{inviteModalData.partnerName}</strong>
-                </div>
+              <div className="bg-orange-50/80 p-3 rounded-2xl border border-orange-100 text-xs space-y-1.5">
+                {chats.length > 1 ? (
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1">
+                      Mời bạn ăn cùng:
+                    </label>
+                    <select
+                      value={inviteModalData.partnerName}
+                      onChange={(e) => {
+                        const target = chats.find((c) => c.partnerName === e.target.value);
+                        if (target) {
+                          setInviteModalData({
+                            ...inviteModalData,
+                            partnerName: target.partnerName,
+                            partnerAvatar: target.partnerAvatar,
+                            partnerId: target.partnerId,
+                          });
+                        }
+                      }}
+                      className="w-full p-2 bg-white border border-orange-200 rounded-xl text-xs font-bold text-slate-900 cursor-pointer"
+                    >
+                      {chats.map((c) => (
+                        <option key={c.id} value={c.partnerName}>
+                          {c.partnerName} ({c.compatibilityScore}% hợp gu)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="text-slate-500">Mời bạn: </span>
+                    <strong className="text-slate-900 font-bold">{inviteModalData.partnerName}</strong>
+                  </div>
+                )}
                 <div>
                   <span className="text-slate-500">Tại quán: </span>
                   <strong className="text-orange-700 font-bold">{inviteModalData.restaurantName}</strong>
