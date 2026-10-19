@@ -43,11 +43,13 @@ foodmate/
 │   └── package.json
 │
 └── foodmate/docs/            # Tài liệu đặc tả kỹ thuật chi tiết
-    ├── SRS.md                # Software Requirements Specification
-    ├── api_specification.md  # Đặc tả RESTful API & WebSocket
-    ├── database_design.md    # Thiết kế cơ sở dữ liệu
-    ├── data_dictionary.md    # Từ điển dữ liệu
-    └── SCHEMA.sql            # Schema SQL chuẩn
+    ├── SRS.md                      # Software Requirements Specification
+    ├── technical_architecture.md   # Thiết kế kiến trúc kỹ thuật toàn diện
+    ├── oauth_integration_guide.md  # Hướng dẫn lấy OAuth Client & tích hợp xác thực OIDC
+    ├── api_specification.md        # Đặc tả RESTful API & WebSocket
+    ├── database_design.md          # Thiết kế cơ sở dữ liệu
+    ├── data_dictionary.md          # Từ điển dữ liệu
+    └── SCHEMA.sql                  # Schema SQL chuẩn
 ```
 
 ---

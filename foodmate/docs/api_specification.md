@@ -113,6 +113,51 @@ Trường hợp xảy ra lỗi:
 - **Mục đích**: Cấp lại Access Token mới bằng Refresh Token xoay vòng.
 - **Request Body**: `{ "refresh_token": "def50200..." }`
 
+#### `POST /auth/social-login`
+- **Mục đích**: Đăng nhập hoặc đăng ký an toàn bằng Google ID Token (OIDC) hoặc tài khoản mạng xã hội (Facebook/Apple).
+- **Request Body**:
+```json
+{
+  "provider": "google",
+  "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+  "full_name": "Nguyễn Minh Quân",
+  "email": "minhquan.foodie@gmail.com",
+  "avatar_url": "https://lh3.googleusercontent.com/a/...",
+  "social_id": "108273648192837465"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Đăng nhập qua Google thành công!",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1Ni...",
+    "token_type": "Bearer",
+    "user": {
+      "id": "user-google-108273",
+      "phone_number": "+84_google_108273648",
+      "full_name": "Nguyễn Minh Quân",
+      "email": "minhquan.foodie@gmail.com",
+      "avatar_url": "https://lh3.googleusercontent.com/a/...",
+      "role": "member",
+      "is_verified": true,
+      "trust_score": 100,
+      "taste_profile": {
+        "cuisines": ["VN_TRAD", "HOTPOT"],
+        "spicy_level": 2,
+        "budget_tier": "BUDGET_T2",
+        "favorite_dish": "Ẩm thực Việt & Lẩu",
+        "connection_purpose": "food_buddy",
+        "max_distance_km": 10
+      }
+    }
+  }
+}
+```
+*(Chi tiết hướng dẫn lấy OAuth Client ID và tích hợp xem tại `foodmate/docs/oauth_integration_guide.md`)*
+
+
 ---
 
 ### 2.2 Module Hồ Sơ & Khẩu Vị (Profile & Taste Management)
