@@ -16,7 +16,7 @@ export default function DiscoveryFeed({ cards = [], onSwipe, onOpenChatWith, myP
 
     setTimeout(() => {
       if (onSwipe) {
-        onSwipe(currentCard.id || currentCard.user_id, action);
+        onSwipe(currentCard, action);
       }
 
       // Giả lập tương hợp ẩm thực kiểu Tinder

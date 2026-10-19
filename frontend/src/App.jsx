@@ -40,7 +40,17 @@ export default function App() {
 
   const [cards, setCards] = useState(MOCK_DISCOVERY_CARDS);
   const [invites, setInvites] = useState(MOCK_INVITES);
-  const [chats, setChats] = useState(MOCK_CHATS);
+  const [chats, setChats] = useState(() => {
+    try {
+      const saved = localStorage.getItem('foodmate_chats');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return MOCK_CHATS;
+  });
+  const [activeChatId, setActiveChatId] = useState(null);
 
   // Chuẩn hóa và phòng vệ dữ liệu thẻ thành viên
   const normalizeCard = (c) => {
@@ -183,42 +193,111 @@ export default function App() {
     note: '',
   });
 
-  // Handler Swipe
-  const handleSwipe = (cardId, action) => {
+  // Handler Swipe: Khi quẹt Thích (like) hoặc Siêu Thích (super) -> Lập tức đồng bộ người này vào danh sách Trò chuyện & Match!
+  const handleSwipe = (cardOrId, action) => {
+    const cardId = typeof cardOrId === 'object' ? (cardOrId.id || cardOrId.user_id) : cardOrId;
     console.log(`Swiped ${action} on ${cardId}`);
     api.swipe(cardId, action, profile?.id || 'user-me');
+
+    if (action === 'like' || action === 'super') {
+      const card = typeof cardOrId === 'object' ? cardOrId : cards.find((c) => c.id === cardId);
+      if (card) {
+        const partnerId = card.id || card.user_id;
+        const partnerName = card.fullName || card.full_name || 'Bạn Ăn FoodMate';
+        const partnerAvatar = card.avatarUrl || card.avatar_url;
+        const favoriteDish = card.favoriteDish || card.favorite_dish || 'món ngon';
+        const compatibilityScore = card.compatibilityScore || card.compatibility_score || 88;
+        const chatId = `chat-${partnerId}`;
+
+        setChats((prevChats) => {
+          const existingIdx = prevChats.findIndex((c) => c.partnerId === partnerId || c.id === chatId);
+          let updatedChats;
+          if (existingIdx >= 0) {
+            const existing = prevChats[existingIdx];
+            updatedChats = [existing, ...prevChats.filter((_, idx) => idx !== existingIdx)];
+          } else {
+            const newChat = {
+              id: chatId,
+              partnerId: partnerId,
+              partnerName: partnerName,
+              partnerAvatar: partnerAvatar,
+              compatibilityScore: compatibilityScore,
+              favoriteDish: favoriteDish,
+              lastMessage: `Hai bạn vừa hợp gu ăn uống! Hãy chào nhau nhé.`,
+              lastMessageTime: 'Vừa xong',
+              unreadCount: 1,
+              isNewMatch: true,
+              messages: [
+                {
+                  id: Date.now(),
+                  sender: 'them',
+                  text: `Chào bạn! Mình thấy bạn cũng thích ${favoriteDish}! Rất vui được kết nối cùng bạn ăn nhé 🍜`,
+                  time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                },
+              ],
+            };
+            updatedChats = [newChat, ...prevChats];
+          }
+          try {
+            localStorage.setItem('foodmate_chats', JSON.stringify(updatedChats));
+          } catch (e) {}
+          return updatedChats;
+        });
+      }
+    }
   };
 
-  // Mở Chat từ Match Modal
+  // Mở Chat từ Match Modal hoặc bấm vào bạn ăn tương hợp
   const handleOpenChatWith = (targetUser) => {
-    const existing = chats.find((c) => c.partnerId === targetUser.id);
-    if (!existing) {
-      const newChat = {
-        id: `chat-${Date.now()}`,
-        partnerId: targetUser.id,
-        partnerName: targetUser.fullName,
-        partnerAvatar: targetUser.avatarUrl,
-        lastMessage: 'Hai bạn vừa hợp gu ăn uống! Hãy chào nhau nhé.',
-        lastMessageTime: 'Vừa xong',
-        unreadCount: 0,
-        messages: [
-          {
-            id: Date.now(),
-            sender: 'them',
-            text: `Chào bạn! Mình thấy bạn cũng thích ${targetUser.favoriteDish}! Rất vui được kết nối nhé 🍜`,
-            time: 'Vừa xong',
-          },
-        ],
-      };
-      setChats([newChat, ...chats]);
-    }
+    const partnerId = targetUser.id || targetUser.user_id;
+    const partnerName = targetUser.fullName || targetUser.full_name || 'Bạn Ăn FoodMate';
+    const partnerAvatar = targetUser.avatarUrl || targetUser.avatar_url;
+    const favoriteDish = targetUser.favoriteDish || targetUser.favorite_dish || 'món ngon';
+    const compatibilityScore = targetUser.compatibilityScore || targetUser.compatibility_score || 88;
+    const chatId = `chat-${partnerId}`;
+
+    setChats((prevChats) => {
+      const existingIdx = prevChats.findIndex((c) => c.partnerId === partnerId || c.id === chatId);
+      let updated;
+      if (existingIdx >= 0) {
+        updated = prevChats;
+      } else {
+        const newChat = {
+          id: chatId,
+          partnerId: partnerId,
+          partnerName: partnerName,
+          partnerAvatar: partnerAvatar,
+          compatibilityScore: compatibilityScore,
+          favoriteDish: favoriteDish,
+          lastMessage: 'Hai bạn vừa hợp gu ăn uống! Hãy chào nhau nhé.',
+          lastMessageTime: 'Vừa xong',
+          unreadCount: 0,
+          isNewMatch: true,
+          messages: [
+            {
+              id: Date.now(),
+              sender: 'them',
+              text: `Chào bạn! Mình thấy bạn cũng thích ${favoriteDish}! Rất vui được kết nối nhé 🍜`,
+              time: 'Vừa xong',
+            },
+          ],
+        };
+        updated = [newChat, ...prevChats];
+      }
+      try {
+        localStorage.setItem('foodmate_chats', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    setActiveChatId(chatId);
     setActiveTab('chat');
   };
 
   // Handler Gửi tin nhắn
   const handleSendMessage = (chatId, text) => {
-    setChats((prev) =>
-      prev.map((c) => {
+    setChats((prev) => {
+      const updated = prev.map((c) => {
         if (c.id === chatId) {
           const newMsg = {
             id: Date.now(),
@@ -234,8 +313,12 @@ export default function App() {
           };
         }
         return c;
-      })
-    );
+      });
+      try {
+        localStorage.setItem('foodmate_chats', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   // Handler Check-in
@@ -345,6 +428,9 @@ export default function App() {
               chats={chats}
               onSendMessage={handleSendMessage}
               onQuickInvite={handleQuickInviteFromChat}
+              activeChatId={activeChatId}
+              onSelectChat={(id) => setActiveChatId(id)}
+              onGoToDiscovery={() => setActiveTab('feed')}
             />
           )}
 
@@ -405,9 +491,12 @@ export default function App() {
             if (tab === 'profile' && !isLoggedIn) {
               setAuthMode('login');
             }
+            if (tab === 'chat') {
+              setActiveChatId(null);
+            }
             setActiveTab(tab);
           }}
-          unreadChatCount={0}
+          unreadChatCount={chats.reduce((acc, c) => acc + (c.unreadCount || 0), 0)}
           pendingInvitesCount={invites.filter((i) => i.status === 'pending').length}
           isLoggedIn={isLoggedIn}
         />
