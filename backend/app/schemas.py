@@ -62,6 +62,15 @@ class TasteProfileUpdate(BaseModel):
     favorite_dish: Optional[str] = None
     max_distance_km: Optional[int] = Field(None, ge=1, le=50)
 
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    occupation: Optional[str] = None
+    taste_profile: Optional[TasteProfileUpdate] = None
+
 # --- Discovery Schemas ---
 class SwipeRequest(BaseModel):
     target_user_id: str

@@ -355,7 +355,36 @@ export default function App() {
                 onUpdateProfile={(updated) => {
                   setProfile(updated);
                   localStorage.setItem('foodmate_user', JSON.stringify(updated));
-                  api.updateTasteProfile(updated.tasteProfile, updated.id);
+
+                  // Cập nhật ngay vào danh sách cộng đồng để các thành viên khác thấy ngay ảnh & tên mới
+                  try {
+                    const communityUsers = JSON.parse(localStorage.getItem('foodmate_community_users') || '[]');
+                    const existsIndex = communityUsers.findIndex(u => u.id === updated.id || (u.phoneNumber && u.phoneNumber === updated.phoneNumber));
+                    if (existsIndex >= 0) {
+                      communityUsers[existsIndex] = updated;
+                    } else {
+                      communityUsers.unshift(updated);
+                    }
+                    localStorage.setItem('foodmate_community_users', JSON.stringify(communityUsers));
+                  } catch (e) {}
+
+                  // Gọi API backend cập nhật toàn bộ thông tin tài khoản
+                  api.updateUserProfile({
+                    full_name: updated.fullName,
+                    age: Number(updated.age),
+                    gender: updated.gender,
+                    avatar_url: updated.avatarUrl,
+                    bio: updated.bio,
+                    occupation: updated.occupation,
+                    taste_profile: {
+                      cuisines: updated.tasteProfile.cuisines,
+                      spicy_level: updated.tasteProfile.spicyLevel,
+                      budget_tier: updated.tasteProfile.budgetTier,
+                      connection_purpose: updated.tasteProfile.connectionPurpose,
+                      favorite_dish: updated.tasteProfile.favoriteDish,
+                      max_distance_km: updated.tasteProfile.maxDistanceKm,
+                    }
+                  }, updated.id);
                 }}
                 onLogout={handleLogout}
               />

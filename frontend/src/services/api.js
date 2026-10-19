@@ -91,6 +91,20 @@ export const api = {
     }
   },
 
+  async updateUserProfile(data, userId = 'user-me') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/profile/me?user_id=${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Backend unavailable, profile saved locally:', e);
+      return null;
+    }
+  },
+
   // 2. Discovery
   async getFeed(lat = 10.7769, lon = 106.7009, userId = 'user-me') {
     try {
