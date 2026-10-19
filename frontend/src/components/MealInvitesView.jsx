@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, MapPin, CheckCircle2, ShieldCheck, Share2, Clock, DollarSign, Star, Navigation } from 'lucide-react';
 
-export default function MealInvitesView({ invites, onCheckIn, onReviewPartner }) {
+export default function MealInvitesView({ invites = [], onCheckIn, onReviewPartner, onGoToRestaurants }) {
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'completed'
   const [checkInMsg, setCheckInMsg] = useState(null);
   const [reviewModal, setReviewModal] = useState(null);
@@ -66,9 +66,28 @@ export default function MealInvitesView({ invites, onCheckIn, onReviewPartner })
 
       {/* Danh sách Invites */}
       <div className="space-y-4">
-        {invites.map((inv) => (
-          <div
-            key={inv.id}
+        {invites.length === 0 ? (
+          <div className="bg-white rounded-3xl p-8 border border-slate-100 text-center shadow-xs">
+            <div className="w-16 h-16 rounded-full bg-orange-50 text-orange-500 mx-auto flex items-center justify-center mb-3">
+              <Calendar className="w-8 h-8" />
+            </div>
+            <h3 className="font-bold text-slate-800 text-base mb-1">Chưa có lịch hẹn bàn ăn nào</h3>
+            <p className="text-xs text-slate-500 max-w-xs mx-auto mb-5 leading-relaxed">
+              Bạn chưa có cuộc hẹn ăn uống nào sắp tới. Hãy chọn một quán ngon hoặc rủ bạn ăn từ hộp thư để lên lịch ngay!
+            </p>
+            {onGoToRestaurants && (
+              <button
+                onClick={onGoToRestaurants}
+                className="py-3 px-6 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-2xl font-bold text-xs shadow-md shadow-orange-500/30 hover:brightness-105 transition"
+              >
+                🍽️ Khám phá quán ngon & Lên kèo
+              </button>
+            )}
+          </div>
+        ) : (
+          invites.map((inv) => (
+            <div
+              key={inv.id}
             className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden"
           >
             {/* Status Header */}
@@ -159,7 +178,8 @@ export default function MealInvitesView({ invites, onCheckIn, onReviewPartner })
               <span>Chấm điểm & đánh giá bạn ăn</span>
             </button>
           </div>
-        ))}
+        ))
+      )}
       </div>
 
       {/* Review Modal */}

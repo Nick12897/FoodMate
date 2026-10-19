@@ -10,7 +10,6 @@ import RestaurantsView from './components/RestaurantsView';
 import {
   INITIAL_MY_PROFILE,
   MOCK_RESTAURANTS,
-  MOCK_INVITES,
 } from './data/mockData';
 import { api } from './services/api';
 import { AlertTriangle, PhoneCall, X, Calendar, MapPin, Send } from 'lucide-react';
@@ -37,7 +36,18 @@ export default function App() {
   });
 
   const [cards, setCards] = useState([]);
-  const [invites, setInvites] = useState(MOCK_INVITES);
+  const [invites, setInvites] = useState(() => {
+    try {
+      const saved = localStorage.getItem('foodmate_invites');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((i) => i.id !== 'inv-101' && i.partnerName !== 'Lê Mai Phương');
+        }
+      }
+    } catch (e) {}
+    return [];
+  });
   const [chats, setChats] = useState(() => {
     try {
       const saved = localStorage.getItem('foodmate_chats');
@@ -346,10 +356,17 @@ export default function App() {
 
   // Mở modal tạo lời mời từ quán ăn hoặc từ chat
   const handleInviteAtRestaurant = (restaurant) => {
+    const defaultPartner = chats.length > 0 ? chats[0] : null;
+    if (!defaultPartner) {
+      alert('Bạn chưa có bạn ăn nào trong danh sách kết nối! Hãy sang mục Quẹt Gu để thả tim kết nối bạn bè trước nhé.');
+      setActiveTab('feed');
+      return;
+    }
     setInviteModalData({
       restaurantName: restaurant.name,
       restaurantAddress: restaurant.address,
-      partnerName: 'Lê Mai Phương',
+      partnerName: defaultPartner.partnerName,
+      partnerAvatar: defaultPartner.partnerAvatar,
     });
   };
 
@@ -358,6 +375,7 @@ export default function App() {
       restaurantName: 'Lẩu Nấm An Nhiên',
       restaurantAddress: '71 Mạc Đĩnh Chi, P. Đa Kao, Quận 1',
       partnerName: chat.partnerName,
+      partnerAvatar: chat.partnerAvatar,
     });
   };
 
@@ -365,12 +383,12 @@ export default function App() {
   const submitCreateInvite = () => {
     if (!inviteModalData) return;
 
+    const defaultPartnerAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80';
     const newInvite = {
       id: `inv-${Date.now()}`,
       inviteCode: `INV-${Date.now().toString().slice(-4)}`,
-      partnerName: inviteModalData.partnerName,
-      partnerAvatar:
-        'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=500&auto=format&fit=crop&q=80',
+      partnerName: inviteModalData.partnerName || 'Bạn Ăn FoodMate',
+      partnerAvatar: inviteModalData.partnerAvatar || defaultPartnerAvatar,
       restaurantName: inviteModalData.restaurantName,
       restaurantAddress: inviteModalData.restaurantAddress,
       scheduledAt: inviteForm.scheduledAt,
@@ -382,7 +400,13 @@ export default function App() {
       shareSafetyToken: `sec_${Date.now()}`,
     };
 
-    setInvites([newInvite, ...invites]);
+    setInvites((prev) => {
+      const updated = [newInvite, ...prev];
+      try {
+        localStorage.setItem('foodmate_invites', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     setInviteModalData(null);
     setActiveTab('invites');
     alert('Lời mời đi ăn đã được gửi thành công! Chờ đối phương xác nhận.');
@@ -422,6 +446,7 @@ export default function App() {
               invites={invites}
               onCheckIn={handleCheckIn}
               onReviewPartner={handleReviewPartner}
+              onGoToRestaurants={() => setActiveTab('restaurants')}
             />
           )}
 
