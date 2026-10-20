@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Utensils, Calendar, MapPin, ArrowLeft, Sparkles, MessageCircle, Heart, CheckCircle2 } from 'lucide-react';
+import { Send, Utensils, Calendar, MapPin, ArrowLeft, Sparkles, MessageCircle, Heart, CheckCircle2, Smile, X } from 'lucide-react';
 
 export default function ChatView({
   chats = [],
@@ -12,6 +12,11 @@ export default function ChatView({
   const [selectedChatId, setSelectedChatId] = useState(activeChatId);
   const [inputText, setInputText] = useState('');
   const [showPartnerModal, setShowPartnerModal] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiCategory, setEmojiCategory] = useState('food'); // 'food' | 'react'
+
+  const FOOD_EMOJIS = ['🍜', '🍲', '🍕', '🍔', '🍗', '🍣', '🥩', '🧋', '☕', '🍻', '🍦', '🌶️', '🥢', '🍱', '🎂', '🍟', '🌮', '🥗', '🍩', '🥑', '🥟', '🍤', '🥞', '🥓'];
+  const REACT_EMOJIS = ['😋', '🤤', '🥰', '😍', '👋', '❤️', '✨', '🔥', '👍', '🥳', '🤩', '💬', '💖', '🥂', '🎉', '💯', '😂', '🥺', '👌', '🤗', '🙏', '🙌', '🤤', '😘'];
 
   // Đồng bộ khi App.jsx truyền vào activeChatId mới (ví dụ khi người dùng click "Nhắn tin rủ đi ăn ngay" từ Match modal)
   useEffect(() => {
@@ -268,30 +273,105 @@ export default function ChatView({
               })}
             </div>
 
-            {/* Quick Prompts Gợi ý */}
-            <div className="px-3 py-1.5 bg-white border-t border-slate-100 flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
-              <span className="text-[10px] text-slate-400 shrink-0 font-medium">Gợi ý:</span>
-              {[
-                'Tối nay rảnh không bạn? 🍜',
-                'Quán này gần chỗ bạn nè!',
-                'Chia đôi 50/50 nhé!',
-                'Bạn ăn cay được cấp mấy? 🌶️',
-              ].map((p, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => sendQuickPrompt(p)}
-                  className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 text-[11px] font-medium transition"
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+            {/* Quick Prompts Gợi ý: Chỉ hiển thị khi mới match và chưa gửi tin nhắn nào */}
+            {(!currentChat.messages || !currentChat.messages.some((m) => m.sender === 'me')) && (
+              <div className="px-3 py-1.5 bg-orange-50/60 border-t border-orange-100/80 flex items-center space-x-1.5 overflow-x-auto no-scrollbar animate-in fade-in duration-200">
+                <span className="text-[10px] text-orange-600 shrink-0 font-bold flex items-center">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Gợi ý mở lời:
+                </span>
+                {[
+                  'Tối nay rảnh không bạn? 🍜',
+                  'Quán này gần chỗ bạn nè!',
+                  'Chia đôi 50/50 nhé!',
+                  'Bạn ăn cay được cấp mấy? 🌶️',
+                ].map((p, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => sendQuickPrompt(p)}
+                    className="whitespace-nowrap px-2.5 py-1 rounded-full bg-white hover:bg-orange-100 hover:text-orange-700 text-slate-700 text-[11px] font-medium transition border border-orange-200/50 shadow-2xs active:scale-95"
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Emoji & Sticker Picker */}
+            {showEmojiPicker && (
+              <div className="bg-white border-t border-slate-200 p-2.5 animate-in slide-in-from-bottom-2 duration-200 shadow-inner">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setEmojiCategory('food')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                        emojiCategory === 'food'
+                          ? 'bg-orange-100 text-orange-600'
+                          : 'text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      🍜 Món ngon & Đồ uống
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmojiCategory('react')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                        emojiCategory === 'react'
+                          ? 'bg-orange-100 text-orange-600'
+                          : 'text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      🥰 Cảm xúc & Hẹn hò
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(false)}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-8 gap-1.5 max-h-36 overflow-y-auto p-1">
+                  {(emojiCategory === 'food' ? FOOD_EMOJIS : REACT_EMOJIS).map((emoji, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setInputText((prev) => prev + emoji);
+                      }}
+                      className="w-8 h-8 flex items-center justify-center text-lg hover:bg-orange-50 rounded-xl transition active:scale-125"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Input Bar */}
             <form
-              onSubmit={handleSend}
+              onSubmit={(e) => {
+                handleSend(e);
+                setShowEmojiPicker(false);
+              }}
               className="p-2.5 bg-white border-t border-slate-100 flex items-center space-x-2"
             >
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className={`p-2 rounded-xl transition shrink-0 ${
+                  showEmojiPicker
+                    ? 'bg-orange-100 text-orange-600'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                }`}
+                title="Chọn biểu tượng cảm xúc"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+
               <input
                 type="text"
                 value={inputText}
@@ -299,13 +379,25 @@ export default function ChatView({
                 placeholder="Nhắn tin về quán ăn, món ngon..."
                 className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500 font-medium"
               />
-              <button
-                type="submit"
-                disabled={!inputText.trim()}
-                className="w-10 h-10 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white flex items-center justify-center disabled:opacity-40 transition shadow-xs active:scale-95"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+
+              {inputText.trim() ? (
+                <button
+                  type="submit"
+                  className="w-10 h-10 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white flex items-center justify-center transition shadow-xs active:scale-95 shrink-0"
+                  title="Gửi tin nhắn"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onSendMessage(selectedChatId, '❤️')}
+                  className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition shadow-xs active:scale-95 shrink-0"
+                  title="Thả tim nhanh"
+                >
+                  <Heart className="w-5 h-5 fill-rose-500" />
+                </button>
+              )}
             </form>
           </div>
         )
