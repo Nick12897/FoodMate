@@ -215,12 +215,28 @@ export default function App() {
     for (const chat of parsedChats) {
       const key = chat.canonicalId;
       if (!mergedMap.has(key)) {
-        mergedMap.set(key, chat);
+        // Lọc sạch mọi tin nhắn trùng lặp
+        const seenInChat = new Set();
+        const cleanMsgs = [];
+        for (const m of chat.messages || []) {
+          const k = `${m.sender}_${(m.text || '').trim()}`;
+          if (!seenInChat.has(k)) {
+            seenInChat.add(k);
+            cleanMsgs.push(m);
+          }
+        }
+        const lastMsg = cleanMsgs.length > 0 ? cleanMsgs[cleanMsgs.length - 1] : null;
+        mergedMap.set(key, {
+          ...chat,
+          messages: cleanMsgs,
+          lastMessage: lastMsg ? lastMsg.text : chat.lastMessage,
+          lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : chat.lastMessageTime
+        });
       } else {
         const existing = mergedMap.get(key);
         // Gộp tin nhắn không trùng lặp
-        const seenTexts = new Set(existing.messages.map((m) => `${m.sender}_${m.text}`));
-        const newMsgs = chat.messages.filter((m) => !seenTexts.has(`${m.sender}_${m.text}`));
+        const seenTexts = new Set(existing.messages.map((m) => `${m.sender}_${(m.text || '').trim()}`));
+        const newMsgs = (chat.messages || []).filter((m) => !seenTexts.has(`${m.sender}_${(m.text || '').trim()}`));
         const allMsgs = [...existing.messages, ...newMsgs];
         const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
 
@@ -317,13 +333,26 @@ export default function App() {
             liveConvs.forEach((lc) => {
               const existing = map.get(lc.id);
               if (existing) {
-                const existingMsgIds = new Set((existing.messages || []).map((m) => m.id));
-                const newMsgs = (lc.messages || []).filter((m) => !existingMsgIds.has(m.id));
+                // Hợp nhất thông minh: server là nguồn chuẩn, khử trùng lặp hoàn toàn
+                const serverMsgs = lc.messages || [];
+                const serverKeys = new Set(
+                  serverMsgs.map((m) => `${m.senderId || m.sender}_${(m.text || '').trim()}`)
+                );
+
+                // Chỉ giữ các tin nhắn vừa gõ ở client chưa kịp gửi xong
+                const pendingLocalMsgs = (existing.messages || []).filter((m) => {
+                  const key = `${m.senderId || m.sender}_${(m.text || '').trim()}`;
+                  return !serverKeys.has(key);
+                });
+
+                const mergedMsgs = [...serverMsgs, ...pendingLocalMsgs];
+                const lastMsg = mergedMsgs.length > 0 ? mergedMsgs[mergedMsgs.length - 1] : null;
+
                 map.set(lc.id, {
                   ...existing,
-                  lastMessage: lc.lastMessage || existing.lastMessage,
-                  lastMessageTime: lc.lastMessageTime || existing.lastMessageTime,
-                  messages: [...(existing.messages || []), ...newMsgs],
+                  lastMessage: lastMsg ? lastMsg.text : (lc.lastMessage || existing.lastMessage),
+                  lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : (lc.lastMessageTime || existing.lastMessageTime),
+                  messages: mergedMsgs,
                 });
               } else {
                 map.set(lc.id, lc);

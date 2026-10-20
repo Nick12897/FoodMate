@@ -7,6 +7,13 @@ from ..schemas import SendMessageRequest
 
 router = APIRouter(prefix="/api/v1/chat", tags=["Chat & Messaging"])
 
+def format_time_vn(dt):
+    if not dt:
+        return datetime.datetime.now().strftime("%H:%M")
+    # Chuyển đổi múi giờ sang giờ Việt Nam (UTC+7)
+    vn_dt = dt + datetime.timedelta(hours=7)
+    return vn_dt.strftime("%H:%M")
+
 @router.get("/conversations")
 def get_conversations(user_id: str = "user-me", db: Session = Depends(get_db)):
     """
@@ -32,7 +39,7 @@ def get_conversations(user_id: str = "user-me", db: Session = Depends(get_db)):
                 "sender": "me" if m.sender_id == user_id else "them",
                 "senderId": m.sender_id,
                 "text": m.content,
-                "time": m.sent_at.strftime("%H:%M") if m.sent_at else "14:20"
+                "time": format_time_vn(m.sent_at)
             }
             for m in messages
         ]
@@ -54,7 +61,7 @@ def get_conversations(user_id: str = "user-me", db: Session = Depends(get_db)):
             "partnerAvatar": partner.avatar_url if (partner and partner.avatar_url) else fallback_avatar,
             "favoriteDish": favorite_dish,
             "lastMessage": c.last_message_preview,
-            "lastMessageTime": c.last_message_at.strftime("%H:%M") if c.last_message_at else "14:25",
+            "lastMessageTime": format_time_vn(c.last_message_at),
             "messages": msg_list,
             "userA": {
                 "id": match.user_a_id,
@@ -83,7 +90,7 @@ def get_messages(conv_id: str, user_id: str = "user-me", db: Session = Depends(g
                 "sender": "me" if m.sender_id == user_id else "them",
                 "senderId": m.sender_id,
                 "text": m.content,
-                "time": m.sent_at.strftime("%H:%M") if m.sent_at else "14:20"
+                "time": format_time_vn(m.sent_at)
             }
             for m in messages
         ]
@@ -140,7 +147,7 @@ def send_message(req: SendMessageRequest, user_id: str = "user-me", db: Session 
                 "id": msg.id,
                 "senderId": msg.sender_id,
                 "content": msg.content,
-                "time": msg.sent_at.strftime("%H:%M")
+                "time": format_time_vn(msg.sent_at)
             }
         }
 
