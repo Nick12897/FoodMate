@@ -19,13 +19,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('profile'); // Mặc định mở tab profile/auth để người dùng thấy ngay luồng Đăng ký & Đăng nhập
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register' riêng biệt
 
-  // Quản lý trạng thái đăng nhập
+  // Quản lý trạng thái đăng nhập: ưu tiên sessionStorage để khi mở 2 Tab test (Sang và Thy) trên cùng trình duyệt không bị đè dữ liệu lên nhau
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!localStorage.getItem('foodmate_user');
+    return !!(sessionStorage.getItem('foodmate_user') || localStorage.getItem('foodmate_user'));
   });
 
   const [profile, setProfile] = useState(() => {
-    const saved = localStorage.getItem('foodmate_user');
+    const saved = sessionStorage.getItem('foodmate_user') || localStorage.getItem('foodmate_user');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -39,7 +39,7 @@ export default function App() {
   const [cards, setCards] = useState([]);
   const [invites, setInvites] = useState(() => {
     try {
-      const saved = localStorage.getItem('foodmate_invites');
+      const saved = sessionStorage.getItem('foodmate_invites') || localStorage.getItem('foodmate_invites');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -51,7 +51,7 @@ export default function App() {
   });
   const [chats, setChats] = useState(() => {
     try {
-      const saved = localStorage.getItem('foodmate_chats');
+      const saved = sessionStorage.getItem('foodmate_chats') || localStorage.getItem('foodmate_chats');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -144,18 +144,13 @@ export default function App() {
     const myNameNorm = normalizeStr(currentProfile.fullName || '');
     const myPhoneClean = (currentProfile.phoneNumber || '').replace(/\D/g, '');
 
-    let communityPool = [...DEFAULT_COMMUNITY_USERS];
-    try {
-      const savedCom = JSON.parse(localStorage.getItem('foodmate_community_users') || '[]');
-      communityPool = [...communityPool, ...savedCom];
-    } catch (e) {}
+    // 1. Chỉ giữ DUY NHẤT 1 đối tượng chat chuẩn cho mỗi cặp người dùng (khử hoàn toàn việc lặp danh sách)
+    const chatMap = new Map();
 
-    // 1. Phân giải danh tính đối tác cho từng bản ghi hội thoại
-    const parsedChats = rawChats.map((c) => {
+    for (const c of rawChats || []) {
+      if (!c) continue;
       let partner = null;
-      let isInverse = false;
 
-      // Nếu cuộc trò chuyện lưu cả 2 đối tượng userA & userB
       if (c.userA && c.userB) {
         const isUserA =
           c.userA.id === myId ||
@@ -169,17 +164,10 @@ export default function App() {
           (c.partnerPhone && myPhoneClean && c.partnerPhone.replace(/\D/g, '') === myPhoneClean);
 
         if (isPartnerSelf) {
-          isInverse = true;
           if (c.createdBy && c.createdBy.id !== myId) {
             partner = c.createdBy;
           } else {
-            const other = communityPool.find(
-              (u) =>
-                u.id !== myId &&
-                normalizeStr(u.fullName) !== myNameNorm &&
-                (!myPhoneClean || (u.phoneNumber || '').replace(/\D/g, '') !== myPhoneClean)
-            );
-            partner = other || DEFAULT_COMMUNITY_USERS[1];
+            partner = DEFAULT_COMMUNITY_USERS[1];
           }
         } else {
           partner = {
@@ -191,118 +179,95 @@ export default function App() {
         }
       }
 
-      // Chuẩn hóa tên & avatar đối tác, tuyệt đối không hiển thị "Bạn ăn"
       let pId = partner?.id || partner?.user_id;
-      let pName = partner?.fullName || partner?.full_name;
-      let pAvatar = partner?.avatarUrl || partner?.avatar_url;
-      let pDish = partner?.favoriteDish || partner?.favorite_dish || c.favoriteDish;
-
       if (!pId || pId === myId) {
         pId = myId === 'user-f9e57803' ? 'user-thy-01' : 'user-f9e57803';
       }
 
-      if (pId === 'user-thy-01' || (!pName || pName === 'Bạn ăn' || pName === 'Thành viên FoodMate')) {
-        if (myId === 'user-f9e57803') {
-          pId = 'user-thy-01';
-          pName = pName && pName !== 'Bạn ăn' && pName !== 'Thành viên FoodMate' ? pName : 'Lê Thị Ngọc Thy';
-          pAvatar = pAvatar || c.partnerAvatar || './thy_avatar.png';
-          pDish = pDish || 'Gà Rán Jollibee';
-        } else {
-          pId = 'user-f9e57803';
-          pName = pName && pName !== 'Bạn ăn' && pName !== 'Thành viên FoodMate' ? pName : 'Lương Đình Khánh Sang';
-          pAvatar = pAvatar || c.partnerAvatar || './sang_avatar.png';
-          pDish = pDish || 'Bún Đậu & Món Chiên';
-        }
-      }
+      let pName = partner?.fullName || partner?.full_name || c.partnerName;
+      let pAvatar = partner?.avatarUrl || partner?.avatar_url || c.partnerAvatar;
+      let pDish = partner?.favoriteDish || partner?.favorite_dish || c.favoriteDish;
 
-      // Đảo chiều tin nhắn 'me' / 'them' theo myId
-      const mappedMessages = (c.messages || []).map((msg) => {
-        let isMe = false;
-        if (msg.senderId) {
-          isMe = msg.senderId === myId;
-        } else if (msg.sender === 'me') {
-          isMe = !isInverse;
-        } else {
-          isMe = isInverse;
-        }
-        return {
-          ...msg,
-          sender: isMe ? 'me' : 'them'
-        };
-      });
+      if (pId === 'user-thy-01') {
+        pName = pName && pName !== 'Bạn ăn' && pName !== 'Thành viên FoodMate' ? pName : 'Lê Thị Ngọc Thy';
+        pAvatar = pAvatar || c.partnerAvatar || './thy_avatar.png';
+        pDish = pDish || 'Gà Rán Jollibee';
+      } else if (pId === 'user-f9e57803') {
+        pName = pName && pName !== 'Bạn ăn' && pName !== 'Thành viên FoodMate' ? pName : 'Lương Đình Khánh Sang';
+        pAvatar = pAvatar || c.partnerAvatar || './sang_avatar.png';
+        pDish = pDish || 'Bún Đậu & Món Chiên';
+      }
 
       const canonicalId = `chat_${[myId, pId].sort().join('_')}`;
 
-      return {
-        ...c,
-        id: canonicalId,
-        canonicalId,
-        partnerId: pId,
-        partnerName: pName,
-        partnerAvatar: pAvatar,
-        favoriteDish: pDish,
-        lastMessage: c.lastMessage || 'Hai bạn vừa hợp gu ăn uống! Hãy chào nhau nhé.',
-        lastMessageTime: c.lastMessageTime || 'Vừa xong',
-        unreadCount: c.unreadCount || 0,
-        messages: mappedMessages
-      };
-    });
-
-    // 2. Gom nhóm tất cả chat theo canonicalId để chỉ duy nhất 1 cuộc trò chuyện giữa 2 người
-    const mergedMap = new Map();
-    for (const chat of parsedChats) {
-      const key = chat.canonicalId;
-      const isViewing =
-        activeTabRef.current === 'chat' &&
-        (activeChatIdRef.current === key ||
-          (activeChatIdRef.current && chat.partnerId && activeChatIdRef.current.includes(chat.partnerId)));
-      const unread = isViewing ? 0 : (chat.unreadCount || 0);
-
-      if (!mergedMap.has(key)) {
-        // Giữ lại tất cả tin nhắn thực tế, chỉ lọc nếu trùng ID bản ghi
-        const seenMsgIds = new Set();
-        const cleanMsgs = [];
-        for (const m of chat.messages || []) {
-          const idKey = m.id ? String(m.id) : `temp_${m.senderId || m.sender}_${m.time}_${m.text}`;
-          if (!seenMsgIds.has(idKey)) {
-            seenMsgIds.add(idKey);
-            cleanMsgs.push(m);
-          }
-        }
-        const lastMsg = cleanMsgs.length > 0 ? cleanMsgs[cleanMsgs.length - 1] : null;
-        mergedMap.set(key, {
-          ...chat,
-          messages: cleanMsgs,
-          lastMessage: lastMsg ? lastMsg.text : chat.lastMessage,
-          lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : chat.lastMessageTime,
-          unreadCount: unread,
+      // Nếu chưa có canonicalId hoặc bản ghi hiện tại có nhiều tin nhắn hơn, lấy bản ghi tốt nhất
+      if (!chatMap.has(canonicalId)) {
+        chatMap.set(canonicalId, {
+          ...c,
+          id: canonicalId,
+          canonicalId,
+          partnerId: pId,
+          partnerName: pName,
+          partnerAvatar: pAvatar,
+          favoriteDish: pDish,
         });
       } else {
-        const existing = mergedMap.get(key);
-        // Gộp tin nhắn dựa theo ID bản ghi để người dùng gửi nhiều tin giống nhau (như ❤️ hoặc Dạ) vẫn hiển thị đầy đủ
-        const existingIdSet = new Set(
-          (existing.messages || []).map((m) =>
-            m.id ? String(m.id) : `temp_${m.senderId || m.sender}_${m.time}_${m.text}`
-          )
-        );
-        const newMsgs = (chat.messages || []).filter((m) => {
-          const idKey = m.id ? String(m.id) : `temp_${m.senderId || m.sender}_${m.time}_${m.text}`;
-          return !existingIdSet.has(idKey);
-        });
-        const allMsgs = [...existing.messages, ...newMsgs];
-        const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
-
-        mergedMap.set(key, {
-          ...existing,
-          messages: allMsgs,
-          lastMessage: lastMsg ? lastMsg.text : existing.lastMessage,
-          lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : existing.lastMessageTime,
-          unreadCount: isViewing ? 0 : Math.max(existing.unreadCount || 0, unread),
-        });
+        const existing = chatMap.get(canonicalId);
+        if ((c.messages || []).length > (existing.messages || []).length) {
+          chatMap.set(canonicalId, {
+            ...c,
+            id: canonicalId,
+            canonicalId,
+            partnerId: pId,
+            partnerName: pName,
+            partnerAvatar: pAvatar,
+            favoriteDish: pDish,
+          });
+        }
       }
     }
 
-    return Array.from(mergedMap.values());
+    // 2. Chuẩn hóa tin nhắn của từng cuộc trò chuyện và ánh xạ chính xác 'me' / 'them' theo myId
+    return Array.from(chatMap.values()).map((chat) => {
+      const isViewing =
+        activeTabRef.current === 'chat' &&
+        (activeChatIdRef.current === chat.canonicalId ||
+          (activeChatIdRef.current && chat.partnerId && activeChatIdRef.current.includes(chat.partnerId)));
+
+      const seenMsgKeys = new Set();
+      const cleanMsgs = [];
+
+      for (const m of chat.messages || []) {
+        if (!m) continue;
+        const msgKey = m.id ? `id_${m.id}` : `temp_${m.senderId || m.sender}_${m.time}_${m.text}`;
+        if (!seenMsgKeys.has(msgKey)) {
+          seenMsgKeys.add(msgKey);
+
+          // Quyết định ai là 'me' và ai là 'them' tuyệt đối theo senderId của người gửi
+          let isMe = false;
+          if (m.senderId) {
+            isMe = m.senderId === myId;
+          } else {
+            isMe = m.sender === 'me';
+          }
+
+          cleanMsgs.push({
+            ...m,
+            sender: isMe ? 'me' : 'them',
+          });
+        }
+      }
+
+      const lastMsg = cleanMsgs.length > 0 ? cleanMsgs[cleanMsgs.length - 1] : null;
+
+      return {
+        ...chat,
+        messages: cleanMsgs,
+        lastMessage: lastMsg ? lastMsg.text : (chat.lastMessage || 'Hai bạn vừa hợp gu ăn uống! Hãy chào nhau nhé.'),
+        lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : (chat.lastMessageTime || 'Vừa xong'),
+        unreadCount: isViewing ? 0 : (chat.unreadCount || 0),
+      };
+    });
   };
 
   // Nạp dữ liệu thực từ Backend Python + SQLite và danh sách thành viên cộng đồng đã đăng ký
@@ -402,43 +367,37 @@ export default function App() {
         if (liveConvs && liveConvs.length > 0) {
           setChats((prev) => {
             const map = new Map();
-            prev.forEach((c) => map.set(c.id, c));
+            (prev || []).forEach((c) => {
+              if (c && c.id) map.set(c.id, c);
+            });
 
             let notificationToTrigger = null;
 
             liveConvs.forEach((lc) => {
-              const existing = map.get(lc.id);
+              const partnerId = lc.partnerId;
+              const canonicalId = `chat_${[currentUserId, partnerId].sort().join('_')}`;
               const serverMsgs = lc.messages || [];
 
               const isViewing =
                 activeTabRef.current === 'chat' &&
                 (activeChatIdRef.current === lc.id ||
-                  activeChatIdRef.current === existing?.canonicalId ||
-                  (activeChatIdRef.current && lc.partnerId && activeChatIdRef.current.includes(lc.partnerId)));
+                  activeChatIdRef.current === canonicalId ||
+                  (activeChatIdRef.current && partnerId && activeChatIdRef.current.includes(partnerId)));
 
+              const existing = map.get(lc.id) || map.get(canonicalId);
+
+              // Xóa mọi biến thể ID cũ (như chat-...) để tránh nhân đôi cuộc trò chuyện
+              map.delete(lc.id);
+              map.delete(`chat-${[currentUserId, partnerId].sort().join('_')}`);
+              map.delete(`chat-${partnerId}`);
+
+              let updatedUnread = existing?.unreadCount || 0;
               if (existing) {
-                // Tin nhắn mới từ phía đối tác ('them') để kích hoạt thông báo
-                const existingMsgIds = new Set(
-                  (existing.messages || []).map((m) => String(m.id))
-                );
-
+                const existingMsgIds = new Set((existing.messages || []).map((m) => String(m.id)));
                 const newIncomingFromPartner = serverMsgs.filter((m) => {
                   const isThem = m.sender === 'them' || (m.senderId && m.senderId !== currentUserId);
                   return isThem && !existingMsgIds.has(String(m.id));
                 });
-
-                // Server messages là nguồn chuẩn tuyệt đối
-                const serverIdSet = new Set(serverMsgs.map((m) => String(m.id)));
-
-                // Chỉ giữ các tin nhắn đang chờ gửi ở client (isPending) chưa kịp có trên server
-                const pendingLocalMsgs = (existing.messages || []).filter((m) => {
-                  return m.isPending && !serverIdSet.has(String(m.id));
-                });
-
-                const mergedMsgs = [...serverMsgs, ...pendingLocalMsgs];
-                const lastMsg = mergedMsgs.length > 0 ? mergedMsgs[mergedMsgs.length - 1] : null;
-
-                let updatedUnread = existing.unreadCount || 0;
                 if (isViewing) {
                   updatedUnread = 0;
                 } else if (newIncomingFromPartner.length > 0) {
@@ -447,23 +406,30 @@ export default function App() {
                     partnerName: lc.partnerName || existing.partnerName || 'Bạn ăn',
                     partnerAvatar: lc.partnerAvatar || existing.partnerAvatar,
                     text: newIncomingFromPartner[newIncomingFromPartner.length - 1].text,
-                    chatId: lc.id,
+                    chatId: canonicalId,
                   };
                 }
-
-                map.set(lc.id, {
-                  ...existing,
-                  lastMessage: lastMsg ? lastMsg.text : (lc.lastMessage || existing.lastMessage),
-                  lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : (lc.lastMessageTime || existing.lastMessageTime),
-                  messages: mergedMsgs,
-                  unreadCount: updatedUnread,
-                });
-              } else {
-                map.set(lc.id, {
-                  ...lc,
-                  unreadCount: isViewing ? 0 : (lc.unreadCount || 0),
-                });
               }
+
+              // Giữ các tin nhắn đang chờ gửi ở client (isPending) chưa kịp có trên server
+              const serverIdSet = new Set(serverMsgs.map((m) => String(m.id)));
+              const pendingLocalMsgs = (existing?.messages || []).filter((m) => {
+                return m.isPending && !serverIdSet.has(String(m.id));
+              });
+
+              const mergedMsgs = [...serverMsgs, ...pendingLocalMsgs];
+              const lastMsg = mergedMsgs.length > 0 ? mergedMsgs[mergedMsgs.length - 1] : null;
+
+              map.set(canonicalId, {
+                ...lc,
+                id: canonicalId,
+                canonicalId,
+                partnerId,
+                lastMessage: lastMsg ? lastMsg.text : (lc.lastMessage || 'Vừa xong'),
+                lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : (lc.lastMessageTime || 'Vừa xong'),
+                messages: mergedMsgs,
+                unreadCount: isViewing ? 0 : updatedUnread,
+              });
             });
 
             if (notificationToTrigger) {
@@ -472,7 +438,7 @@ export default function App() {
 
             const merged = Array.from(map.values());
             try {
-              localStorage.setItem('foodmate_chats', JSON.stringify(merged));
+              sessionStorage.setItem('foodmate_chats', JSON.stringify(merged));
             } catch (e) {}
             return merged;
           });
@@ -485,22 +451,8 @@ export default function App() {
     syncConversations();
     const chatInterval = setInterval(syncConversations, 2500);
 
-    // Đồng bộ tức thì giữa các Tab trong cùng trình duyệt
-    const handleStorageChange = (e) => {
-      if (e.key === 'foodmate_chats' && e.newValue) {
-        try {
-          const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) {
-            setChats(parsed);
-          }
-        } catch (err) {}
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-
     return () => {
       clearInterval(chatInterval);
-      window.removeEventListener('storage', handleStorageChange);
     };
   }, [profile?.id, profile?.phoneNumber]);
 
@@ -529,6 +481,7 @@ export default function App() {
 
     setProfile(formattedUser);
     setIsLoggedIn(true);
+    sessionStorage.setItem('foodmate_user', JSON.stringify(formattedUser));
     localStorage.setItem('foodmate_user', JSON.stringify(formattedUser));
 
     // Đồng thời lưu vào danh sách thành viên cộng đồng để mọi người khác cùng quẹt thấy!
@@ -550,7 +503,10 @@ export default function App() {
 
   // Xử lý Đăng xuất
   const handleLogout = () => {
+    sessionStorage.removeItem('foodmate_user');
+    sessionStorage.removeItem('foodmate_chats');
     localStorage.removeItem('foodmate_user');
+    localStorage.removeItem('foodmate_chats');
     setIsLoggedIn(false);
     setProfile(null);
     setAuthMode('login');
@@ -594,15 +550,13 @@ export default function App() {
 
         const myId = profile?.id || 'user-me';
         const sortedPairKey = [myId, partnerId].sort().join('_');
-        const chatId = `chat-${sortedPairKey}`;
+        const chatId = `chat_${sortedPairKey}`;
 
         setChats((prevChats) => {
           const existingIdx = prevChats.findIndex((c) =>
             c.id === chatId ||
-            c.id === `chat-${partnerId}` ||
-            c.partnerId === partnerId ||
-            (c.userA?.id === partnerId && c.userB?.id === myId) ||
-            (c.userA?.id === myId && c.userB?.id === partnerId)
+            c.canonicalId === chatId ||
+            c.partnerId === partnerId
           );
           let updatedChats;
           if (existingIdx >= 0) {
@@ -662,15 +616,13 @@ export default function App() {
     const compatibilityScore = targetUser.compatibilityScore || targetUser.compatibility_score || 88;
     const myId = profile?.id || 'user-me';
     const sortedPairKey = [myId, partnerId].sort().join('_');
-    const chatId = `chat-${sortedPairKey}`;
+    const chatId = `chat_${sortedPairKey}`;
 
     setChats((prevChats) => {
       const existingIdx = prevChats.findIndex((c) =>
         c.id === chatId ||
-        c.id === `chat-${partnerId}` ||
-        c.partnerId === partnerId ||
-        (c.userA?.id === partnerId && c.userB?.id === myId) ||
-        (c.userA?.id === myId && c.userB?.id === partnerId)
+        c.canonicalId === chatId ||
+        c.partnerId === partnerId
       );
       let updated;
       if (existingIdx >= 0) {
