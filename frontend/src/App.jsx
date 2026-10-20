@@ -204,14 +204,14 @@ export default function App() {
       if (pId === 'user-thy-01' || (!pName || pName === 'Bạn ăn' || pName === 'Thành viên FoodMate')) {
         if (myId === 'user-f9e57803') {
           pId = 'user-thy-01';
-          pName = 'Lê Thị Ngọc Thy';
-          pAvatar = './thy_avatar.png';
-          pDish = 'Gà Rán Jollibee';
+          pName = pName && pName !== 'Bạn ăn' && pName !== 'Thành viên FoodMate' ? pName : 'Lê Thị Ngọc Thy';
+          pAvatar = pAvatar || c.partnerAvatar || './thy_avatar.png';
+          pDish = pDish || 'Gà Rán Jollibee';
         } else {
           pId = 'user-f9e57803';
-          pName = 'Lương Đình Khánh Sang';
-          pAvatar = './sang_avatar.png';
-          pDish = 'Bún Đậu & Món Chiên';
+          pName = pName && pName !== 'Bạn ăn' && pName !== 'Thành viên FoodMate' ? pName : 'Lương Đình Khánh Sang';
+          pAvatar = pAvatar || c.partnerAvatar || './sang_avatar.png';
+          pDish = pDish || 'Bún Đậu & Món Chiên';
         }
       }
 

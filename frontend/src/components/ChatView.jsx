@@ -11,6 +11,7 @@ export default function ChatView({
 }) {
   const [selectedChatId, setSelectedChatId] = useState(activeChatId);
   const [inputText, setInputText] = useState('');
+  const [showPartnerModal, setShowPartnerModal] = useState(false);
 
   // Đồng bộ khi App.jsx truyền vào activeChatId mới (ví dụ khi người dùng click "Nhắn tin rủ đi ăn ngay" từ Match modal)
   useEffect(() => {
@@ -197,26 +198,32 @@ export default function ChatView({
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
-                <div className="relative">
-                  <img
-                    src={currentChat.partnerAvatar || defaultAvatar}
-                    alt={currentChat.partnerName}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = defaultAvatar;
-                    }}
-                    className="w-9 h-9 rounded-full object-cover border border-slate-200"
-                  />
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border border-white rounded-full" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm truncate max-w-[140px]">
-                    {currentChat.partnerName}
-                  </h4>
-                  <span className="text-[10px] text-emerald-600 font-semibold flex items-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
-                    Đang hoạt động
-                  </span>
+                <div
+                  onClick={() => setShowPartnerModal(true)}
+                  className="flex items-center space-x-2.5 cursor-pointer p-1 -m-1 rounded-xl hover:bg-slate-100/70 transition group"
+                  title="Nhấn để xem thông tin bạn ăn"
+                >
+                  <div className="relative">
+                    <img
+                      src={currentChat.partnerAvatar || defaultAvatar}
+                      alt={currentChat.partnerName}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = defaultAvatar;
+                      }}
+                      className="w-9 h-9 rounded-full object-cover border border-slate-200 group-hover:scale-105 transition"
+                    />
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border border-white rounded-full" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm truncate max-w-[140px] group-hover:text-orange-600 transition">
+                      {currentChat.partnerName}
+                    </h4>
+                    <span className="text-[10px] text-emerald-600 font-semibold flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
+                      Đang hoạt động
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -302,6 +309,66 @@ export default function ChatView({
             </form>
           </div>
         )
+      )}
+
+      {/* MODAL THÔNG TIN CHI TIẾT BẠN ĂN KHI CHẠM VÀO AVATAR/TRẠNG THÁI */}
+      {showPartnerModal && currentChat && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xs w-full p-5 text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
+            <div className="relative w-24 h-24 mx-auto mb-3">
+              <img
+                src={currentChat.partnerAvatar || defaultAvatar}
+                alt={currentChat.partnerName}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = defaultAvatar;
+                }}
+                className="w-24 h-24 rounded-full object-cover border-4 border-orange-500 shadow-md mx-auto"
+              />
+              <span className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center" />
+            </div>
+
+            <h3 className="text-lg font-black text-slate-900">{currentChat.partnerName}</h3>
+            <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-xs font-semibold mt-1 mb-3 border border-emerald-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Đang hoạt động trực tuyến</span>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-3.5 mb-4 text-left space-y-2 border border-slate-100 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">🍜 Món ăn ruột:</span>
+                <span className="font-bold text-slate-800">{currentChat.favoriteDish || 'Món ngon mỗi ngày'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">🔥 Độ tương hợp:</span>
+                <span className="font-bold text-orange-600">{currentChat.compatibilityScore || 88}% Hợp khẩu vị</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">💬 Trạng thái:</span>
+                <span className="font-semibold text-slate-700">Sẵn sàng nhận lời mời đi ăn</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  setShowPartnerModal(false);
+                  onQuickInvite(currentChat);
+                }}
+                className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold text-xs shadow-md shadow-orange-500/30 hover:brightness-105 transition flex items-center justify-center space-x-2"
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Rủ bạn này đi ăn ngay</span>
+              </button>
+              <button
+                onClick={() => setShowPartnerModal(false)}
+                className="w-full py-2 text-slate-500 hover:text-slate-700 text-xs font-bold transition"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
