@@ -166,4 +166,46 @@ export const api = {
       return null;
     }
   },
+
+  // 5. Chat & Messaging
+  async getConversations(userId = 'user-me') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/conversations?user_id=${userId}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async getMessages(convId, userId = 'user-me') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/conversations/${convId}/messages?user_id=${userId}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async sendMessage(convId, content, senderId = 'user-me', partnerId = null) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/messages?user_id=${senderId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: convId,
+          content,
+          sender_id: senderId,
+          partner_id: partnerId
+        }),
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  },
 };

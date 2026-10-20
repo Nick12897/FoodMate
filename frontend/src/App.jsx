@@ -258,6 +258,65 @@ export default function App() {
       }
     }
     loadInvites();
+
+    // Đồng bộ tin nhắn liên tục 2 chiều với Backend SQLite
+    async function syncConversations() {
+      const currentUserId = profile?.id || 'user-f9e57803';
+      try {
+        const liveConvs = await api.getConversations(currentUserId);
+        if (liveConvs && liveConvs.length > 0) {
+          setChats((prev) => {
+            const map = new Map();
+            prev.forEach((c) => map.set(c.id, c));
+
+            liveConvs.forEach((lc) => {
+              const existing = map.get(lc.id);
+              if (existing) {
+                const existingMsgIds = new Set((existing.messages || []).map((m) => m.id));
+                const newMsgs = (lc.messages || []).filter((m) => !existingMsgIds.has(m.id));
+                map.set(lc.id, {
+                  ...existing,
+                  lastMessage: lc.lastMessage || existing.lastMessage,
+                  lastMessageTime: lc.lastMessageTime || existing.lastMessageTime,
+                  messages: [...(existing.messages || []), ...newMsgs],
+                });
+              } else {
+                map.set(lc.id, lc);
+              }
+            });
+
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem('foodmate_chats', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
+        }
+      } catch (e) {
+        console.warn('Sync conversations error:', e);
+      }
+    }
+
+    syncConversations();
+    const chatInterval = setInterval(syncConversations, 2500);
+
+    // Đồng bộ tức thì giữa các Tab trong cùng trình duyệt
+    const handleStorageChange = (e) => {
+      if (e.key === 'foodmate_chats' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setChats(parsed);
+          }
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      clearInterval(chatInterval);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [profile?.id, profile?.phoneNumber]);
 
   // Xử lý Đăng nhập / Đăng ký thành công
@@ -467,13 +526,18 @@ export default function App() {
 
   // Handler Gửi tin nhắn
   const handleSendMessage = (chatId, text) => {
+    const currentUserId = profile?.id || 'user-f9e57803';
+    const currentDisplayChats = getDisplayChats(chats, profile);
+    const activeChat = currentDisplayChats.find((c) => c.id === chatId);
+    const partnerId = activeChat?.partnerId || null;
+
     setChats((prev) => {
       const updated = prev.map((c) => {
         if (c.id === chatId) {
           const newMsg = {
             id: Date.now(),
             sender: 'me',
-            senderId: profile?.id || 'user-me',
+            senderId: currentUserId,
             text,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
@@ -491,6 +555,9 @@ export default function App() {
       } catch (e) {}
       return updated;
     });
+
+    // Đồng bộ tức thì lên SQLite backend server để đối tác nhận được ngay
+    api.sendMessage(chatId, text, currentUserId, partnerId);
   };
 
   // Handler Check-in

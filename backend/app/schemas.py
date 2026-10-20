@@ -115,3 +115,5 @@ class ReviewPartnerRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     conversation_id: str
     content: str
+    sender_id: Optional[str] = None
+    partner_id: Optional[str] = None
