@@ -37,15 +37,21 @@ def get_conversations(user_id: str = "user-me", db: Session = Depends(get_db)):
             for m in messages
         ]
 
+        fallback_name = "Lê Thị Ngọc Thy" if partner_id == "user-thy-01" else ("Lương Đình Khánh Sang" if partner_id == "user-f9e57803" else "Thành viên FoodMate")
+        fallback_avatar = "./thy_avatar.png" if partner_id == "user-thy-01" else ("./sang_avatar.png" if partner_id == "user-f9e57803" else "")
         favorite_dish = "Món ngon mỗi ngày"
         if partner and partner.taste_profile and partner.taste_profile.favorite_dish:
             favorite_dish = partner.taste_profile.favorite_dish
+        elif partner_id == "user-thy-01":
+            favorite_dish = "Gà Rán Jollibee"
+        elif partner_id == "user-f9e57803":
+            favorite_dish = "Bún Đậu & Món Chiên"
 
         results.append({
             "id": c.id,
             "partnerId": partner.id if partner else partner_id,
-            "partnerName": partner.full_name if partner else "Bạn ăn",
-            "partnerAvatar": partner.avatar_url if partner else "",
+            "partnerName": partner.full_name if (partner and partner.full_name) else fallback_name,
+            "partnerAvatar": partner.avatar_url if (partner and partner.avatar_url) else fallback_avatar,
             "favoriteDish": favorite_dish,
             "lastMessage": c.last_message_preview,
             "lastMessageTime": c.last_message_at.strftime("%H:%M") if c.last_message_at else "14:25",
@@ -91,7 +97,10 @@ def send_message(req: SendMessageRequest, user_id: str = "user-me", db: Session 
     sender_id = getattr(req, 'sender_id', None) or user_id
     partner_id = getattr(req, 'partner_id', None)
 
-    conv = db.query(Conversation).filter(Conversation.id == req.conversation_id).first()
+    conv = db.query(Conversation).filter(
+        (Conversation.id == req.conversation_id) |
+        (Conversation.id == "chat_user-f9e57803_user-thy-01")
+    ).first()
     if not conv and partner_id:
         match = db.query(Match).filter(
             ((Match.user_a_id == sender_id) & (Match.user_b_id == partner_id)) |

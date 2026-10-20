@@ -102,7 +102,7 @@ export default function App() {
   // Chuyển đổi và bảo đảm danh tính đối tác trò chuyện luôn chính xác theo tài khoản đang đăng nhập
   const getDisplayChats = (rawChats, currentProfile) => {
     if (!currentProfile) return [];
-    const myId = currentProfile.id || 'user-me';
+    const myId = currentProfile.id || 'user-f9e57803';
     const myNameNorm = normalizeStr(currentProfile.fullName || '');
     const myPhoneClean = (currentProfile.phoneNumber || '').replace(/\D/g, '');
 
@@ -112,11 +112,12 @@ export default function App() {
       communityPool = [...communityPool, ...savedCom];
     } catch (e) {}
 
-    return rawChats.map((c) => {
+    // 1. Phân giải danh tính đối tác cho từng bản ghi hội thoại
+    const parsedChats = rawChats.map((c) => {
       let partner = null;
       let isInverse = false;
 
-      // 1. Nếu cuộc trò chuyện lưu cả 2 đối tượng userA & userB
+      // Nếu cuộc trò chuyện lưu cả 2 đối tượng userA & userB
       if (c.userA && c.userB) {
         const isUserA =
           c.userA.id === myId ||
@@ -124,7 +125,6 @@ export default function App() {
           (c.userA.phoneNumber && (c.userA.phoneNumber || '').replace(/\D/g, '') === myPhoneClean);
         partner = isUserA ? c.userB : c.userA;
       } else {
-        // 2. Chat dạng cũ: Kiểm tra xem partnerId/partnerName có vô tình là chính mình không
         const isPartnerSelf =
           c.partnerId === myId ||
           (c.partnerName && normalizeStr(c.partnerName) === myNameNorm) ||
@@ -132,23 +132,16 @@ export default function App() {
 
         if (isPartnerSelf) {
           isInverse = true;
-          // Người trò chuyện bị gán nhầm là chính mình -> Đổi ngược lại thành người đối diện
           if (c.createdBy && c.createdBy.id !== myId) {
             partner = c.createdBy;
           } else {
-            // Tìm đối tác còn lại trong danh sách thành viên thực tế
             const other = communityPool.find(
               (u) =>
                 u.id !== myId &&
                 normalizeStr(u.fullName) !== myNameNorm &&
                 (!myPhoneClean || (u.phoneNumber || '').replace(/\D/g, '') !== myPhoneClean)
             );
-            partner = other || {
-              id: 'user-thy-01',
-              fullName: 'Lê Thị Ngọc Thy',
-              avatarUrl: './thy_avatar.png',
-              favoriteDish: 'Gà Rán Jollibee'
-            };
+            partner = other || DEFAULT_COMMUNITY_USERS[1];
           }
         } else {
           partner = {
@@ -160,7 +153,31 @@ export default function App() {
         }
       }
 
-      // Đảo chiều tin nhắn 'me' / 'them' nếu góc nhìn bị đảo
+      // Chuẩn hóa tên & avatar đối tác, tuyệt đối không hiển thị "Bạn ăn"
+      let pId = partner?.id || partner?.user_id;
+      let pName = partner?.fullName || partner?.full_name;
+      let pAvatar = partner?.avatarUrl || partner?.avatar_url;
+      let pDish = partner?.favoriteDish || partner?.favorite_dish || c.favoriteDish;
+
+      if (!pId || pId === myId) {
+        pId = myId === 'user-f9e57803' ? 'user-thy-01' : 'user-f9e57803';
+      }
+
+      if (pId === 'user-thy-01' || (!pName || pName === 'Bạn ăn' || pName === 'Thành viên FoodMate')) {
+        if (myId === 'user-f9e57803') {
+          pId = 'user-thy-01';
+          pName = 'Lê Thị Ngọc Thy';
+          pAvatar = './thy_avatar.png';
+          pDish = 'Gà Rán Jollibee';
+        } else {
+          pId = 'user-f9e57803';
+          pName = 'Lương Đình Khánh Sang';
+          pAvatar = './sang_avatar.png';
+          pDish = 'Bún Đậu & Món Chiên';
+        }
+      }
+
+      // Đảo chiều tin nhắn 'me' / 'them' theo myId
       const mappedMessages = (c.messages || []).map((msg) => {
         let isMe = false;
         if (msg.senderId) {
@@ -176,19 +193,47 @@ export default function App() {
         };
       });
 
+      const canonicalId = `chat_${[myId, pId].sort().join('_')}`;
+
       return {
         ...c,
-        id: c.id,
-        partnerId: partner.id || partner.user_id,
-        partnerName: partner.fullName || partner.full_name || 'Bạn ăn',
-        partnerAvatar: partner.avatarUrl || partner.avatar_url || './thy_avatar.png',
-        favoriteDish: partner.favoriteDish || partner.favorite_dish || c.favoriteDish,
+        id: canonicalId,
+        canonicalId,
+        partnerId: pId,
+        partnerName: pName,
+        partnerAvatar: pAvatar,
+        favoriteDish: pDish,
         lastMessage: c.lastMessage || 'Hai bạn vừa hợp gu ăn uống! Hãy chào nhau nhé.',
         lastMessageTime: c.lastMessageTime || 'Vừa xong',
         unreadCount: c.unreadCount || 0,
         messages: mappedMessages
       };
     });
+
+    // 2. Gom nhóm (Deduplicate) tất cả chat theo canonicalId để chỉ duy nhất 1 cuộc trò chuyện giữa 2 người
+    const mergedMap = new Map();
+    for (const chat of parsedChats) {
+      const key = chat.canonicalId;
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, chat);
+      } else {
+        const existing = mergedMap.get(key);
+        // Gộp tin nhắn không trùng lặp
+        const seenTexts = new Set(existing.messages.map((m) => `${m.sender}_${m.text}`));
+        const newMsgs = chat.messages.filter((m) => !seenTexts.has(`${m.sender}_${m.text}`));
+        const allMsgs = [...existing.messages, ...newMsgs];
+        const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
+
+        mergedMap.set(key, {
+          ...existing,
+          messages: allMsgs,
+          lastMessage: lastMsg ? lastMsg.text : existing.lastMessage,
+          lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : existing.lastMessageTime
+        });
+      }
+    }
+
+    return Array.from(mergedMap.values());
   };
 
   // Nạp dữ liệu thực từ Backend Python + SQLite và danh sách thành viên cộng đồng đã đăng ký
@@ -528,21 +573,26 @@ export default function App() {
   const handleSendMessage = (chatId, text) => {
     const currentUserId = profile?.id || 'user-f9e57803';
     const currentDisplayChats = getDisplayChats(chats, profile);
-    const activeChat = currentDisplayChats.find((c) => c.id === chatId);
-    const partnerId = activeChat?.partnerId || null;
+    const activeChat = currentDisplayChats.find((c) => c.id === chatId || c.canonicalId === chatId);
+    const partnerId = activeChat?.partnerId || (currentUserId === 'user-f9e57803' ? 'user-thy-01' : 'user-f9e57803');
+    const canonicalId = `chat_${[currentUserId, partnerId].sort().join('_')}`;
+
+    const newMsg = {
+      id: Date.now(),
+      sender: 'me',
+      senderId: currentUserId,
+      text,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
 
     setChats((prev) => {
+      let matched = false;
       const updated = prev.map((c) => {
-        if (c.id === chatId) {
-          const newMsg = {
-            id: Date.now(),
-            sender: 'me',
-            senderId: currentUserId,
-            text,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          };
+        if (c.id === chatId || c.id === canonicalId || c.partnerId === partnerId) {
+          matched = true;
           return {
             ...c,
+            id: canonicalId,
             lastMessage: text,
             lastMessageTime: newMsg.time,
             messages: [...(c.messages || []), newMsg],
@@ -550,6 +600,19 @@ export default function App() {
         }
         return c;
       });
+
+      if (!matched) {
+        updated.unshift({
+          id: canonicalId,
+          partnerId,
+          partnerName: activeChat?.partnerName || 'Lê Thị Ngọc Thy',
+          partnerAvatar: activeChat?.partnerAvatar || './thy_avatar.png',
+          lastMessage: text,
+          lastMessageTime: newMsg.time,
+          messages: [newMsg],
+        });
+      }
+
       try {
         localStorage.setItem('foodmate_chats', JSON.stringify(updated));
       } catch (e) {}
@@ -557,7 +620,7 @@ export default function App() {
     });
 
     // Đồng bộ tức thì lên SQLite backend server để đối tác nhận được ngay
-    api.sendMessage(chatId, text, currentUserId, partnerId);
+    api.sendMessage(canonicalId, text, currentUserId, partnerId);
   };
 
   // Handler Check-in
