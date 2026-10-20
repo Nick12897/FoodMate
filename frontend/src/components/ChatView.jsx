@@ -14,6 +14,30 @@ export default function ChatView({
   const [showPartnerModal, setShowPartnerModal] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiCategory, setEmojiCategory] = useState('food'); // 'food' | 'react'
+  const [floatingHearts, setFloatingHearts] = useState([]);
+
+  // Kích hoạt đàn trái tim bay lên trong 2 giây khi bấm thả tim nhanh
+  const triggerHeartBurst = () => {
+    if (!selectedChatId) return;
+    onSendMessage(selectedChatId, '❤️');
+
+    const newHearts = Array.from({ length: 18 }).map((_, i) => ({
+      id: `${Date.now()}_${i}_${Math.random()}`,
+      right: 14 + Math.random() * 32, // vị trí phát xuất quanh nút thả tim
+      bottom: 58 + Math.random() * 12,
+      size: 18 + Math.random() * 16,
+      drift: (Math.random() - 0.5) * 85,
+      rot: (Math.random() - 0.5) * 45,
+      delay: i * 0.045 + Math.random() * 0.08,
+      duration: 1.6 + Math.random() * 0.4,
+    }));
+
+    setFloatingHearts((prev) => [...prev, ...newHearts]);
+
+    setTimeout(() => {
+      setFloatingHearts((prev) => prev.filter((h) => !newHearts.some((nh) => nh.id === h.id)));
+    }, 2200);
+  };
 
   const FOOD_EMOJIS = ['🍜', '🍲', '🍕', '🍔', '🍗', '🍣', '🥩', '🧋', '☕', '🍻', '🍦', '🌶️', '🥢', '🍱', '🎂', '🍟', '🌮', '🥗', '🍩', '🥑', '🥟', '🍤', '🥞', '🥓'];
   const REACT_EMOJIS = ['😋', '🤤', '🥰', '😍', '👋', '❤️', '✨', '🔥', '👍', '🥳', '🤩', '💬', '💖', '🥂', '🎉', '💯', '😂', '🥺', '👌', '🤗', '🙏', '🙌', '🤤', '😘'];
@@ -192,7 +216,7 @@ export default function ChatView({
       ) : (
         /* ===================== CHẾ ĐỘ 2: KHUNG CHAT CHI TIẾT (selectedChatId !== null) ===================== */
         currentChat && (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[76vh] overflow-hidden animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[76vh] overflow-hidden animate-in fade-in duration-150 relative">
             {/* Chat Header */}
             <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/90">
               <div className="flex items-center space-x-2.5">
@@ -391,14 +415,33 @@ export default function ChatView({
               ) : (
                 <button
                   type="button"
-                  onClick={() => onSendMessage(selectedChatId, '❤️')}
-                  className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition shadow-xs active:scale-95 shrink-0"
+                  onClick={triggerHeartBurst}
+                  className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition shadow-xs active:scale-125 shrink-0"
                   title="Thả tim nhanh"
                 >
-                  <Heart className="w-5 h-5 fill-rose-500" />
+                  <Heart className="w-5 h-5 fill-rose-500 animate-pulse" />
                 </button>
               )}
             </form>
+
+            {/* Hiệu ứng đàn trái tim bay lên trong 2 giây khi thả tim nhanh */}
+            {floatingHearts.map((heart) => (
+              <span
+                key={heart.id}
+                className="absolute pointer-events-none z-50 animate-float-heart drop-shadow-md select-none text-rose-500"
+                style={{
+                  right: `${heart.right}px`,
+                  bottom: `${heart.bottom}px`,
+                  fontSize: `${heart.size}px`,
+                  animationDelay: `${heart.delay}s`,
+                  animationDuration: `${heart.duration}s`,
+                  '--drift': `${heart.drift}px`,
+                  '--rot': `${heart.rot}deg`,
+                }}
+              >
+                ❤️
+              </span>
+            ))}
           </div>
         )
       )}

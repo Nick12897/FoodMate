@@ -20,3 +20,31 @@
   opacity: 0;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Hiệu ứng trái tim bay lên khi thả tim nhanh */
+@keyframes floatUpHeart {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.4) rotate(0deg);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-25px) scale(1.25) rotate(var(--rot, 0deg));
+  }
+  50% {
+    opacity: 0.95;
+    transform: translateY(-130px) translateX(var(--drift, 0px)) scale(1.1) rotate(calc(var(--rot, 0deg) * -1));
+  }
+  85% {
+    opacity: 0.6;
+    transform: translateY(-220px) translateX(calc(var(--drift, 0px) * 1.4)) scale(0.95) rotate(var(--rot, 0deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-280px) translateX(calc(var(--drift, 0px) * 1.8)) scale(0.7) rotate(var(--rot, 0deg));
+  }
+}
+
+.animate-float-heart {
+  animation: floatUpHeart 2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
