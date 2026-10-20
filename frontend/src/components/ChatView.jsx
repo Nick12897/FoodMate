@@ -130,7 +130,7 @@ export default function ChatView({
                   onClick={() => handleSelectChat(chat.id)}
                   className="w-full bg-white p-3.5 rounded-2xl border border-slate-100 shadow-xs hover:border-orange-300 hover:shadow-sm transition flex items-center space-x-3 text-left active:scale-99"
                 >
-                  <div className="relative shrink-0">
+                  <div className="relative shrink-0 w-12 h-12">
                     <img
                       src={chat.partnerAvatar || defaultAvatar}
                       alt={chat.partnerName}
@@ -138,7 +138,7 @@ export default function ChatView({
                         e.target.onerror = null;
                         e.target.src = defaultAvatar;
                       }}
-                      className="w-13 h-13 rounded-2xl object-cover border border-slate-100"
+                      className="w-12 h-12 rounded-2xl object-cover border border-slate-100 shadow-xs"
                     />
                     <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
                   </div>
