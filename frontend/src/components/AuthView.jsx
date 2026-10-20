@@ -14,6 +14,8 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
   // Form Đăng ký: Hoàn toàn trống, người dùng tự điền từ đầu
   const [regData, setRegData] = useState({
     phoneNumber: '',
+    password: '',
+    confirmPassword: '',
     fullName: '',
     age: '',
     gender: '',
@@ -61,12 +63,16 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
       setErrorMsg('Vui lòng nhập số điện thoại.');
       return;
     }
+    if (!loginPassword.trim()) {
+      setErrorMsg('Vui lòng nhập mật khẩu.');
+      return;
+    }
 
     setErrorMsg('');
     setLoading(true);
 
     try {
-      const res = await api.login(loginPhone.trim(), loginPassword);
+      const res = await api.login(loginPhone.trim(), loginPassword.trim());
       if (res && res.data && res.data.user) {
         onAuthSuccess(res.data.user);
         return;
@@ -83,6 +89,11 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
         return uPhone && (uPhone === cleanInput || uPhone.endsWith(cleanInput) || cleanInput.endsWith(uPhone));
       });
       if (found) {
+        const expectedPass = found.password || '123456';
+        if (loginPassword.trim() !== expectedPass) {
+          setErrorMsg('Mật khẩu không chính xác. Vui lòng kiểm tra lại.');
+          return;
+        }
         onAuthSuccess(found);
         return;
       }
@@ -172,6 +183,18 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
       setErrorMsg('Vui lòng nhập số điện thoại.');
       return;
     }
+    if (!regData.password) {
+      setErrorMsg('Vui lòng nhập mật khẩu (tối thiểu 6 ký tự).');
+      return;
+    }
+    if (regData.password.length < 6) {
+      setErrorMsg('Mật khẩu phải có độ dài ít nhất 6 ký tự.');
+      return;
+    }
+    if (regData.password !== regData.confirmPassword) {
+      setErrorMsg('Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại.');
+      return;
+    }
     if (!regData.fullName.trim()) {
       setErrorMsg('Vui lòng nhập Họ và tên.');
       return;
@@ -195,6 +218,7 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
 
       const payload = {
         phone_number: regData.phoneNumber.trim(),
+        password: regData.password,
         full_name: regData.fullName.trim(),
         age: Number(regData.age),
         gender: regData.gender,
@@ -219,6 +243,7 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
         id: `user-${Date.now().toString().slice(-6)}`,
         fullName: regData.fullName.trim(),
         phoneNumber: regData.phoneNumber.trim(),
+        password: regData.password,
         age: Number(regData.age),
         gender: regData.gender,
         occupation: regData.occupation.trim() || 'Thành viên FoodMate',
@@ -234,6 +259,12 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
           maxDistanceKm: 10
         }
       };
+
+      // Lưu tài khoản đăng ký vào localStorage để có thể đăng nhập lại bất cứ lúc nào
+      const existingCommunity = JSON.parse(localStorage.getItem('foodmate_community_users') || '[]');
+      existingCommunity.push(localUser);
+      localStorage.setItem('foodmate_community_users', JSON.stringify(existingCommunity));
+
       alert('🎉 Đăng ký tài khoản FoodMate thành công!');
       onAuthSuccess(localUser);
     } finally {
@@ -299,15 +330,16 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">Mật khẩu / Mã OTP</label>
+            <label className="text-xs font-bold text-slate-700 block mb-1">Mật khẩu (*)</label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="password"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="Nhập mật khẩu hoặc mã xác thực"
+                placeholder="Nhập mật khẩu của bạn"
                 className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+                required
               />
             </div>
           </div>
@@ -320,48 +352,6 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
             <span>{loading ? 'Đang xác thực...' : 'Đăng nhập vào FoodMate'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
-
-          {/* Chuyển đổi nhanh 2 tài khoản cục bộ của bạn */}
-          <div className="pt-1">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2 text-center">
-              ⚡ Chuyển đổi nhanh 2 tài khoản cục bộ:
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => onAuthSuccess(DEFAULT_COMMUNITY_USERS[0])}
-                className="p-2 bg-orange-50/80 hover:bg-orange-100 border border-orange-200/80 rounded-2xl text-left transition flex items-center space-x-2 shadow-xs active:scale-95"
-                title="Đăng nhập Lương Đình Khánh Sang"
-              >
-                <img
-                  src={DEFAULT_COMMUNITY_USERS[0].avatarUrl}
-                  alt={DEFAULT_COMMUNITY_USERS[0].fullName}
-                  className="w-8 h-8 rounded-full object-cover shrink-0 border border-orange-300"
-                />
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-slate-900 truncate">Khánh Sang</p>
-                  <span className="text-[10px] text-slate-500 font-medium">IT (29t)</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onAuthSuccess(DEFAULT_COMMUNITY_USERS[1])}
-                className="p-2 bg-rose-50/80 hover:bg-rose-100 border border-rose-200/80 rounded-2xl text-left transition flex items-center space-x-2 shadow-xs active:scale-95"
-                title="Đăng nhập Lê Thị Ngọc Thy"
-              >
-                <img
-                  src={DEFAULT_COMMUNITY_USERS[1].avatarUrl}
-                  alt={DEFAULT_COMMUNITY_USERS[1].fullName}
-                  className="w-8 h-8 rounded-full object-cover shrink-0 border border-rose-300"
-                />
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-slate-900 truncate">Ngọc Thy</p>
-                  <span className="text-[10px] text-slate-500 font-medium">Dược Sĩ (22t)</span>
-                </div>
-              </button>
-            </div>
-          </div>
 
           {/* Phân cách tiếp tục với mạng xã hội */}
           <div className="relative flex py-1 items-center">
@@ -455,6 +445,39 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
                 required
               />
+            </div>
+
+            {/* Mật khẩu & Xác nhận mật khẩu */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Mật khẩu (*)</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="password"
+                    value={regData.password}
+                    onChange={(e) => setRegData({ ...regData, password: e.target.value })}
+                    placeholder="Tối thiểu 6 ký tự"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Xác nhận mật khẩu (*)</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="password"
+                    value={regData.confirmPassword}
+                    onChange={(e) => setRegData({ ...regData, confirmPassword: e.target.value })}
+                    placeholder="Nhập lại mật khẩu"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Họ và tên */}

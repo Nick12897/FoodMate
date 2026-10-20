@@ -37,6 +37,7 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
     new_user = User(
         id=user_id,
         phone_number=req.phone_number,
+        password=req.password or "123456",
         full_name=req.full_name,
         gender=req.gender or "other",
         date_of_birth="2000-01-01",
@@ -111,6 +112,14 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=404,
             detail="Số điện thoại chưa được đăng ký. Vui lòng tạo tài khoản mới."
+        )
+
+    # Kiểm tra mật khẩu đăng nhập
+    user_password = getattr(user, 'password', None) or "123456"
+    if req.password and req.password != user_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Mật khẩu không chính xác. Vui lòng kiểm tra lại."
         )
 
     taste = user.taste_profile

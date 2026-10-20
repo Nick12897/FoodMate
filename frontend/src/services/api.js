@@ -2,12 +2,12 @@ const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
 
 export const api = {
   // 0. Auth
-  async login(phoneNumber, password = '123') {
+  async login(phoneNumber, password = '') {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone_number: phoneNumber, password }),
+        body: JSON.stringify({ phone_number: phoneNumber, password: password }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.detail || 'Đăng nhập không thành công');

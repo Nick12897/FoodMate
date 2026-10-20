@@ -33,6 +33,7 @@ class User(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     phone_number = Column(String(20), unique=True, nullable=False)
+    password = Column(String(100), default="123456")
     full_name = Column(String(100), nullable=False)
     gender = Column(String(20), default="other")
     date_of_birth = Column(String(10), default="2000-01-01")
