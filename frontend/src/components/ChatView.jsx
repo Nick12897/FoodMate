@@ -19,8 +19,9 @@ export default function ChatView({
 
   // Kích hoạt đàn trái tim bay lên trong 2 giây khi bấm thả tim nhanh
   const triggerHeartBurst = () => {
-    if (!selectedChatId) return;
-    onSendMessage(selectedChatId, '❤️');
+    const targetChatId = selectedChatId || currentChat?.id || currentChat?.canonicalId || (chats[0]?.id);
+    if (!targetChatId) return;
+    onSendMessage(targetChatId, '❤️');
 
     const newHearts = Array.from({ length: 18 }).map((_, i) => ({
       id: `${Date.now()}_${i}_${Math.random()}`,
@@ -78,15 +79,17 @@ export default function ChatView({
 
   const handleSend = (e) => {
     e.preventDefault();
-    if (!inputText.trim() || !selectedChatId) return;
+    const targetChatId = selectedChatId || currentChat?.id || currentChat?.canonicalId || (chats[0]?.id);
+    if (!inputText.trim() || !targetChatId) return;
 
-    onSendMessage(selectedChatId, inputText.trim());
+    onSendMessage(targetChatId, inputText.trim());
     setInputText('');
   };
 
   const sendQuickPrompt = (text) => {
-    if (!selectedChatId) return;
-    onSendMessage(selectedChatId, text);
+    const targetChatId = selectedChatId || currentChat?.id || currentChat?.canonicalId || (chats[0]?.id);
+    if (!targetChatId) return;
+    onSendMessage(targetChatId, text);
   };
 
   const defaultAvatar = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80';
