@@ -248,7 +248,7 @@ export default function App() {
       };
     });
 
-    // 2. Gom nhóm (Deduplicate) tất cả chat theo canonicalId để chỉ duy nhất 1 cuộc trò chuyện giữa 2 người
+    // 2. Gom nhóm tất cả chat theo canonicalId để chỉ duy nhất 1 cuộc trò chuyện giữa 2 người
     const mergedMap = new Map();
     for (const chat of parsedChats) {
       const key = chat.canonicalId;
@@ -259,13 +259,13 @@ export default function App() {
       const unread = isViewing ? 0 : (chat.unreadCount || 0);
 
       if (!mergedMap.has(key)) {
-        // Lọc sạch mọi tin nhắn trùng lặp
-        const seenInChat = new Set();
+        // Giữ lại tất cả tin nhắn thực tế, chỉ lọc nếu trùng ID bản ghi
+        const seenMsgIds = new Set();
         const cleanMsgs = [];
         for (const m of chat.messages || []) {
-          const k = `${m.sender}_${(m.text || '').trim()}`;
-          if (!seenInChat.has(k)) {
-            seenInChat.add(k);
+          const idKey = m.id ? String(m.id) : `temp_${m.senderId || m.sender}_${m.time}_${m.text}`;
+          if (!seenMsgIds.has(idKey)) {
+            seenMsgIds.add(idKey);
             cleanMsgs.push(m);
           }
         }
@@ -279,9 +279,16 @@ export default function App() {
         });
       } else {
         const existing = mergedMap.get(key);
-        // Gộp tin nhắn không trùng lặp
-        const seenTexts = new Set(existing.messages.map((m) => `${m.sender}_${(m.text || '').trim()}`));
-        const newMsgs = (chat.messages || []).filter((m) => !seenTexts.has(`${m.sender}_${(m.text || '').trim()}`));
+        // Gộp tin nhắn dựa theo ID bản ghi để người dùng gửi nhiều tin giống nhau (như ❤️ hoặc Dạ) vẫn hiển thị đầy đủ
+        const existingIdSet = new Set(
+          (existing.messages || []).map((m) =>
+            m.id ? String(m.id) : `temp_${m.senderId || m.sender}_${m.time}_${m.text}`
+          )
+        );
+        const newMsgs = (chat.messages || []).filter((m) => {
+          const idKey = m.id ? String(m.id) : `temp_${m.senderId || m.sender}_${m.time}_${m.text}`;
+          return !existingIdSet.has(idKey);
+        });
         const allMsgs = [...existing.messages, ...newMsgs];
         const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : null;
 
@@ -410,29 +417,22 @@ export default function App() {
                   (activeChatIdRef.current && lc.partnerId && activeChatIdRef.current.includes(lc.partnerId)));
 
               if (existing) {
-                // Khử trùng lặp và xác định tin nhắn mới đến từ đối tác
-                const existingKeySet = new Set(
-                  (existing.messages || []).map(
-                    (m) => `${m.senderId || m.sender}_${(m.text || '').trim()}`
-                  )
+                // Tin nhắn mới từ phía đối tác ('them') để kích hoạt thông báo
+                const existingMsgIds = new Set(
+                  (existing.messages || []).map((m) => String(m.id))
                 );
 
-                // Tin nhắn mới từ phía đối tác ('them')
                 const newIncomingFromPartner = serverMsgs.filter((m) => {
                   const isThem = m.sender === 'them' || (m.senderId && m.senderId !== currentUserId);
-                  const key = `${m.senderId || m.sender}_${(m.text || '').trim()}`;
-                  return isThem && !existingKeySet.has(key);
+                  return isThem && !existingMsgIds.has(String(m.id));
                 });
 
-                // Server là nguồn chuẩn, khử trùng lặp hoàn toàn
-                const serverKeys = new Set(
-                  serverMsgs.map((m) => `${m.senderId || m.sender}_${(m.text || '').trim()}`)
-                );
+                // Server messages là nguồn chuẩn tuyệt đối
+                const serverIdSet = new Set(serverMsgs.map((m) => String(m.id)));
 
-                // Chỉ giữ các tin nhắn vừa gõ ở client chưa kịp gửi xong
+                // Chỉ giữ các tin nhắn đang chờ gửi ở client (isPending) chưa kịp có trên server
                 const pendingLocalMsgs = (existing.messages || []).filter((m) => {
-                  const key = `${m.senderId || m.sender}_${(m.text || '').trim()}`;
-                  return !serverKeys.has(key);
+                  return m.isPending && !serverIdSet.has(String(m.id));
                 });
 
                 const mergedMsgs = [...serverMsgs, ...pendingLocalMsgs];
@@ -723,19 +723,21 @@ export default function App() {
   };
 
   // Handler Gửi tin nhắn
-  const handleSendMessage = (chatId, text) => {
+  const handleSendMessage = async (chatId, text) => {
     const currentUserId = profile?.id || 'user-f9e57803';
     const currentDisplayChats = getDisplayChats(chats, profile);
     const activeChat = currentDisplayChats.find((c) => c.id === chatId || c.canonicalId === chatId);
     const partnerId = activeChat?.partnerId || (currentUserId === 'user-f9e57803' ? 'user-thy-01' : 'user-f9e57803');
     const canonicalId = `chat_${[currentUserId, partnerId].sort().join('_')}`;
 
+    const tempId = `temp_${Date.now()}_${Math.random().toString().slice(-4)}`;
     const newMsg = {
-      id: Date.now(),
+      id: tempId,
       sender: 'me',
       senderId: currentUserId,
       text,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isPending: true,
     };
 
     setChats((prev) => {
@@ -775,7 +777,30 @@ export default function App() {
     });
 
     // Đồng bộ tức thì lên SQLite backend server để đối tác nhận được ngay
-    api.sendMessage(canonicalId, text, currentUserId, partnerId);
+    try {
+      const res = await api.sendMessage(canonicalId, text, currentUserId, partnerId);
+      if (res && res.id) {
+        setChats((prev) => {
+          const updated = prev.map((c) => {
+            if (c.id === canonicalId || c.partnerId === partnerId) {
+              return {
+                ...c,
+                messages: (c.messages || []).map((m) =>
+                  m.id === tempId ? { ...m, id: res.id, isPending: false } : m
+                ),
+              };
+            }
+            return c;
+          });
+          try {
+            localStorage.setItem('foodmate_chats', JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to send message to backend:', err);
+    }
   };
 
   // Handler Check-in
