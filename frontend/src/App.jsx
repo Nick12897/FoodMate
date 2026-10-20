@@ -99,6 +99,98 @@ export default function App() {
       .toLowerCase()
       .trim();
 
+  // Chuyển đổi và bảo đảm danh tính đối tác trò chuyện luôn chính xác theo tài khoản đang đăng nhập
+  const getDisplayChats = (rawChats, currentProfile) => {
+    if (!currentProfile) return [];
+    const myId = currentProfile.id || 'user-me';
+    const myNameNorm = normalizeStr(currentProfile.fullName || '');
+    const myPhoneClean = (currentProfile.phoneNumber || '').replace(/\D/g, '');
+
+    let communityPool = [...DEFAULT_COMMUNITY_USERS];
+    try {
+      const savedCom = JSON.parse(localStorage.getItem('foodmate_community_users') || '[]');
+      communityPool = [...communityPool, ...savedCom];
+    } catch (e) {}
+
+    return rawChats.map((c) => {
+      let partner = null;
+      let isInverse = false;
+
+      // 1. Nếu cuộc trò chuyện lưu cả 2 đối tượng userA & userB
+      if (c.userA && c.userB) {
+        const isUserA =
+          c.userA.id === myId ||
+          normalizeStr(c.userA.fullName) === myNameNorm ||
+          (c.userA.phoneNumber && (c.userA.phoneNumber || '').replace(/\D/g, '') === myPhoneClean);
+        partner = isUserA ? c.userB : c.userA;
+      } else {
+        // 2. Chat dạng cũ: Kiểm tra xem partnerId/partnerName có vô tình là chính mình không
+        const isPartnerSelf =
+          c.partnerId === myId ||
+          (c.partnerName && normalizeStr(c.partnerName) === myNameNorm) ||
+          (c.partnerPhone && myPhoneClean && c.partnerPhone.replace(/\D/g, '') === myPhoneClean);
+
+        if (isPartnerSelf) {
+          isInverse = true;
+          // Người trò chuyện bị gán nhầm là chính mình -> Đổi ngược lại thành người đối diện
+          if (c.createdBy && c.createdBy.id !== myId) {
+            partner = c.createdBy;
+          } else {
+            // Tìm đối tác còn lại trong danh sách thành viên thực tế
+            const other = communityPool.find(
+              (u) =>
+                u.id !== myId &&
+                normalizeStr(u.fullName) !== myNameNorm &&
+                (!myPhoneClean || (u.phoneNumber || '').replace(/\D/g, '') !== myPhoneClean)
+            );
+            partner = other || {
+              id: 'user-thy-01',
+              fullName: 'Lê Thị Ngọc Thy',
+              avatarUrl: './thy_avatar.png',
+              favoriteDish: 'Gà Rán Jollibee'
+            };
+          }
+        } else {
+          partner = {
+            id: c.partnerId,
+            fullName: c.partnerName,
+            avatarUrl: c.partnerAvatar,
+            favoriteDish: c.favoriteDish
+          };
+        }
+      }
+
+      // Đảo chiều tin nhắn 'me' / 'them' nếu góc nhìn bị đảo
+      const mappedMessages = (c.messages || []).map((msg) => {
+        let isMe = false;
+        if (msg.senderId) {
+          isMe = msg.senderId === myId;
+        } else if (msg.sender === 'me') {
+          isMe = !isInverse;
+        } else {
+          isMe = isInverse;
+        }
+        return {
+          ...msg,
+          sender: isMe ? 'me' : 'them'
+        };
+      });
+
+      return {
+        ...c,
+        id: c.id,
+        partnerId: partner.id || partner.user_id,
+        partnerName: partner.fullName || partner.full_name || 'Bạn ăn',
+        partnerAvatar: partner.avatarUrl || partner.avatar_url || './thy_avatar.png',
+        favoriteDish: partner.favoriteDish || partner.favorite_dish || c.favoriteDish,
+        lastMessage: c.lastMessage || 'Hai bạn vừa hợp gu ăn uống! Hãy chào nhau nhé.',
+        lastMessageTime: c.lastMessageTime || 'Vừa xong',
+        unreadCount: c.unreadCount || 0,
+        messages: mappedMessages
+      };
+    });
+  };
+
   // Nạp dữ liệu thực từ Backend Python + SQLite và danh sách thành viên cộng đồng đã đăng ký
   const reloadDiscoveryCards = async () => {
     const currentUserId = profile?.id || 'user-me';
@@ -243,10 +335,19 @@ export default function App() {
         const partnerAvatar = card.avatarUrl || card.avatar_url;
         const favoriteDish = card.favoriteDish || card.favorite_dish || 'món ngon';
         const compatibilityScore = card.compatibilityScore || card.compatibility_score || 88;
-        const chatId = `chat-${partnerId}`;
+
+        const myId = profile?.id || 'user-me';
+        const sortedPairKey = [myId, partnerId].sort().join('_');
+        const chatId = `chat-${sortedPairKey}`;
 
         setChats((prevChats) => {
-          const existingIdx = prevChats.findIndex((c) => c.partnerId === partnerId || c.id === chatId);
+          const existingIdx = prevChats.findIndex((c) =>
+            c.id === chatId ||
+            c.id === `chat-${partnerId}` ||
+            c.partnerId === partnerId ||
+            (c.userA?.id === partnerId && c.userB?.id === myId) ||
+            (c.userA?.id === myId && c.userB?.id === partnerId)
+          );
           let updatedChats;
           if (existingIdx >= 0) {
             const existing = prevChats[existingIdx];
@@ -259,6 +360,18 @@ export default function App() {
               partnerAvatar: partnerAvatar,
               compatibilityScore: compatibilityScore,
               favoriteDish: favoriteDish,
+              userA: {
+                id: myId,
+                fullName: profile?.fullName || 'Khánh Sang',
+                avatarUrl: profile?.avatarUrl || './sang_avatar.png',
+                phoneNumber: profile?.phoneNumber || ''
+              },
+              userB: {
+                id: partnerId,
+                fullName: partnerName,
+                avatarUrl: partnerAvatar,
+                phoneNumber: card.phoneNumber || ''
+              },
               lastMessage: `Hai bạn vừa hợp gu ăn uống! Hãy chào nhau nhé.`,
               lastMessageTime: 'Vừa xong',
               unreadCount: 1,
@@ -267,6 +380,7 @@ export default function App() {
                 {
                   id: Date.now(),
                   sender: 'them',
+                  senderId: partnerId,
                   text: `Chào bạn! Mình thấy bạn cũng thích ${favoriteDish}! Rất vui được kết nối cùng bạn ăn nhé 🍜`,
                   time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 },
@@ -290,10 +404,18 @@ export default function App() {
     const partnerAvatar = targetUser.avatarUrl || targetUser.avatar_url;
     const favoriteDish = targetUser.favoriteDish || targetUser.favorite_dish || 'món ngon';
     const compatibilityScore = targetUser.compatibilityScore || targetUser.compatibility_score || 88;
-    const chatId = `chat-${partnerId}`;
+    const myId = profile?.id || 'user-me';
+    const sortedPairKey = [myId, partnerId].sort().join('_');
+    const chatId = `chat-${sortedPairKey}`;
 
     setChats((prevChats) => {
-      const existingIdx = prevChats.findIndex((c) => c.partnerId === partnerId || c.id === chatId);
+      const existingIdx = prevChats.findIndex((c) =>
+        c.id === chatId ||
+        c.id === `chat-${partnerId}` ||
+        c.partnerId === partnerId ||
+        (c.userA?.id === partnerId && c.userB?.id === myId) ||
+        (c.userA?.id === myId && c.userB?.id === partnerId)
+      );
       let updated;
       if (existingIdx >= 0) {
         updated = prevChats;
@@ -305,6 +427,18 @@ export default function App() {
           partnerAvatar: partnerAvatar,
           compatibilityScore: compatibilityScore,
           favoriteDish: favoriteDish,
+          userA: {
+            id: myId,
+            fullName: profile?.fullName || 'Khánh Sang',
+            avatarUrl: profile?.avatarUrl || './sang_avatar.png',
+            phoneNumber: profile?.phoneNumber || ''
+          },
+          userB: {
+            id: partnerId,
+            fullName: partnerName,
+            avatarUrl: partnerAvatar,
+            phoneNumber: targetUser.phoneNumber || ''
+          },
           lastMessage: 'Hai bạn vừa hợp gu ăn uống! Hãy chào nhau nhé.',
           lastMessageTime: 'Vừa xong',
           unreadCount: 0,
@@ -313,6 +447,7 @@ export default function App() {
             {
               id: Date.now(),
               sender: 'them',
+              senderId: partnerId,
               text: `Chào bạn! Mình thấy bạn cũng thích ${favoriteDish}! Rất vui được kết nối nhé 🍜`,
               time: 'Vừa xong',
             },
@@ -338,6 +473,7 @@ export default function App() {
           const newMsg = {
             id: Date.now(),
             sender: 'me',
+            senderId: profile?.id || 'user-me',
             text,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
@@ -345,7 +481,7 @@ export default function App() {
             ...c,
             lastMessage: text,
             lastMessageTime: newMsg.time,
-            messages: [...c.messages, newMsg],
+            messages: [...(c.messages || []), newMsg],
           };
         }
         return c;
@@ -380,7 +516,8 @@ export default function App() {
 
   // Mở modal tạo lời mời từ quán ăn hoặc từ chat
   const handleInviteAtRestaurant = (restaurant) => {
-    const defaultPartner = chats.length > 0 ? chats[0] : null;
+    const validDisplayChats = getDisplayChats(chats, profile);
+    const defaultPartner = validDisplayChats.length > 0 ? validDisplayChats[0] : null;
     if (!defaultPartner) {
       alert('Bạn chưa có bạn ăn nào trong danh sách kết nối! Hãy sang mục Quẹt Gu để thả tim kết nối bạn bè trước nhé.');
       setActiveTab('feed');
@@ -450,6 +587,9 @@ export default function App() {
     alert('Lời mời đi ăn đã được gửi thành công! Lời nhắn rủ ăn đã được gửi tự động vào hộp thư trò chuyện.');
   };
 
+  // Danh sách hội thoại đã được chuẩn hóa danh tính đối tác theo tài khoản đang đăng nhập
+  const displayChats = getDisplayChats(chats, profile);
+
   return (
     <div className="min-h-screen bg-slate-100 flex justify-center selection:bg-orange-500 selection:text-white">
       {/* Khung mô phỏng kích thước Mobile App hiện đại */}
@@ -475,7 +615,7 @@ export default function App() {
           {activeTab === 'restaurants' && (
             <RestaurantsView
               restaurants={MOCK_RESTAURANTS}
-              chats={chats}
+              chats={displayChats}
               onInviteAtRestaurant={handleInviteAtRestaurant}
               onGoToDiscovery={() => setActiveTab('feed')}
             />
@@ -492,7 +632,7 @@ export default function App() {
 
           {activeTab === 'chat' && (
             <ChatView
-              chats={chats}
+              chats={displayChats}
               onSendMessage={handleSendMessage}
               onQuickInvite={handleQuickInviteFromChat}
               activeChatId={activeChatId}
@@ -563,7 +703,7 @@ export default function App() {
             }
             setActiveTab(tab);
           }}
-          unreadChatCount={chats.reduce((acc, c) => acc + (c.unreadCount || 0), 0)}
+          unreadChatCount={displayChats.reduce((acc, c) => acc + (c.unreadCount || 0), 0)}
           pendingInvitesCount={invites.filter((i) => i.status === 'pending').length}
           isLoggedIn={isLoggedIn}
         />
@@ -629,7 +769,7 @@ export default function App() {
 
               {/* Thông tin đối tác & quán */}
               <div className="bg-orange-50/80 p-3 rounded-2xl border border-orange-100 text-xs space-y-1.5">
-                {chats.length > 1 ? (
+                {displayChats.length > 1 ? (
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 block mb-1">
                       Mời bạn ăn cùng:
@@ -637,7 +777,7 @@ export default function App() {
                     <select
                       value={inviteModalData.partnerName}
                       onChange={(e) => {
-                        const target = chats.find((c) => c.partnerName === e.target.value);
+                        const target = displayChats.find((c) => c.partnerName === e.target.value);
                         if (target) {
                           setInviteModalData({
                             ...inviteModalData,
@@ -649,7 +789,7 @@ export default function App() {
                       }}
                       className="w-full p-2 bg-white border border-orange-200 rounded-xl text-xs font-bold text-slate-900 cursor-pointer"
                     >
-                      {chats.map((c) => (
+                      {displayChats.map((c) => (
                         <option key={c.id} value={c.partnerName}>
                           {c.partnerName} ({c.compatibilityScore}% hợp gu)
                         </option>
