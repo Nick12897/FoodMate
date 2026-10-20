@@ -30,15 +30,13 @@ def get_discovery_feed(
         same_users = [u.id for u in db.query(User).filter((User.phone_number == me.phone_number) | (User.full_name == me.full_name)).all()]
         swiped_ids.extend(same_users)
 
-    candidates = db.query(User).filter(~User.id.in_(swiped_ids), User.status == "active").all()
+    # Loại bỏ cả những người đã Match thành công (đang trong danh sách Trò chuyện)
+    matches = db.query(Match).filter((Match.user_a_id == user_id) | (Match.user_b_id == user_id)).all()
+    for m in matches:
+        partner_id = m.user_b_id if m.user_a_id == user_id else m.user_a_id
+        swiped_ids.append(partner_id)
 
-    # Nếu đã quẹt hết hoặc danh sách rỗng, cho phép xem lại các thành viên thực tế khác (trừ chính mình)
-    if not candidates:
-        exclude_ids = [user_id]
-        if me:
-            same_users = [u.id for u in db.query(User).filter((User.phone_number == me.phone_number) | (User.full_name == me.full_name)).all()]
-            exclude_ids.extend(same_users)
-        candidates = db.query(User).filter(~User.id.in_(exclude_ids), User.status == "active").all()
+    candidates = db.query(User).filter(~User.id.in_(swiped_ids), User.status == "active").all()
 
     cards = []
     DEFAULT_AVATARS = [

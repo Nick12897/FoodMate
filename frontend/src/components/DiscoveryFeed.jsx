@@ -2,7 +2,16 @@ import React, { useState } from 'react';
 import { Heart, X, Star, MapPin, Flame, Utensils, Sparkles, ShieldCheck, RotateCcw, MessageCircle, Check, Users } from 'lucide-react';
 import { MASTER_CUISINES } from '../data/mockData';
 
-export default function DiscoveryFeed({ cards = [], onSwipe, onOpenChatWith, myProfile, onReloadCards }) {
+export default function DiscoveryFeed({
+  cards = [],
+  onSwipe,
+  onOpenChatWith,
+  myProfile,
+  onReloadCards,
+  onGoToChat,
+  onResetSwipes,
+  matchedCount = 0
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipeAnim, setSwipeAnim] = useState(''); // 'like' | 'pass' | 'super'
   const [matchModal, setMatchModal] = useState(null);
@@ -49,27 +58,51 @@ export default function DiscoveryFeed({ cards = [], onSwipe, onOpenChatWith, myP
     }
   };
 
-  // Màn hình khi chưa có tài khoản nào đăng ký trên hệ thống (Thực tế, không dùng card demo)
+  // Màn hình khi chưa có tài khoản nào đăng ký trên hệ thống hoặc đã quẹt/kết nối hết
   if (cards.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 text-center max-w-md mx-auto">
-        <div className="w-20 h-20 rounded-full bg-orange-100/80 flex items-center justify-center text-orange-500 mb-4 shadow-sm border border-orange-200">
-          <Users className="w-10 h-10" />
+      <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 text-center max-w-md mx-auto animate-in fade-in duration-300">
+        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-orange-100 to-amber-100 flex items-center justify-center text-orange-500 mb-4 shadow-sm border border-orange-200">
+          <Utensils className="w-10 h-10" />
         </div>
-        <h3 className="text-xl font-bold text-slate-800 mb-2">Chưa có thành viên nào để quẹt gu</h3>
+        <h3 className="text-xl font-black text-slate-800 mb-2">Đã xem hết bạn ăn quanh đây!</h3>
         <p className="text-xs text-slate-500 mb-6 max-w-xs leading-relaxed">
-          Hiện tại chưa có người dùng nào khác đăng ký trên hệ thống. Khi có thành viên mới tham gia hoặc bạn bè đăng ký tài khoản, hồ sơ của họ sẽ xuất hiện tại đây ngay lập tức!
+          {matchedCount > 0
+            ? `Bạn đã quẹt qua tất cả hồ sơ trong khu vực. Bạn đang có ${matchedCount} người bạn tương hợp trong Hộp thư Trò chuyện!`
+            : 'Hiện tại chưa có thêm hồ sơ thành viên mới trong khu vực. Khi có bạn bè mới đăng ký, hồ sơ sẽ xuất hiện tại đây ngay!'}
         </p>
-        <button
-          onClick={() => {
-            setCurrentIndex(0);
-            if (onReloadCards) onReloadCards();
-          }}
-          className="w-full max-w-xs py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-2xl font-bold text-xs shadow-md shadow-orange-500/30 hover:brightness-105 transition active:scale-98 flex items-center justify-center space-x-2"
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Làm mới & Kiểm tra người dùng mới</span>
-        </button>
+        <div className="flex flex-col w-full max-w-xs space-y-2.5">
+          {matchedCount > 0 && onGoToChat && (
+            <button
+              onClick={onGoToChat}
+              className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-2xl font-bold text-xs shadow-md shadow-orange-500/30 hover:brightness-105 transition active:scale-98 flex items-center justify-center space-x-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>💬 Vào Hộp Thư Trò Chuyện Ngay</span>
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setCurrentIndex(0);
+              if (onReloadCards) onReloadCards();
+            }}
+            className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold text-xs shadow-xs hover:bg-slate-50 transition active:scale-98 flex items-center justify-center space-x-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Kiểm tra người dùng mới</span>
+          </button>
+          {onResetSwipes && (
+            <button
+              onClick={() => {
+                setCurrentIndex(0);
+                onResetSwipes();
+              }}
+              className="w-full py-2 text-orange-600 hover:text-orange-700 text-xs font-bold transition active:scale-98"
+            >
+              🔄 Khám phá lại từ đầu (Reset lượt quẹt)
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -77,28 +110,39 @@ export default function DiscoveryFeed({ cards = [], onSwipe, onOpenChatWith, myP
   // Màn hình khi đã quẹt hết thẻ trong danh sách hiện tại
   if (!currentCard || currentIndex >= cards.length) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 text-center max-w-md mx-auto">
+      <div className="flex flex-col items-center justify-center min-h-[65vh] px-6 text-center max-w-md mx-auto animate-in fade-in duration-300">
         <div className="w-20 h-20 rounded-full bg-orange-100 flex items-center justify-center text-orange-500 mb-4 animate-bounce shadow-sm">
           <Utensils className="w-10 h-10" />
         </div>
-        <h3 className="text-xl font-bold text-slate-800 mb-2">Đã xem hết bạn ăn quanh đây!</h3>
+        <h3 className="text-xl font-black text-slate-800 mb-2">Đã xem hết bạn ăn quanh đây!</h3>
         <p className="text-xs text-slate-500 mb-6 max-w-xs leading-relaxed">
-          Bạn đã quẹt qua tất cả hồ sơ thành viên đăng ký trong khu vực. Hãy tải lại để quẹt thêm hoặc mở rộng bán kính tìm kiếm nhé!
+          Bạn đã quẹt qua tất cả hồ sơ thành viên trong khu vực. Bạn có thể trò chuyện với bạn ăn đã tương hợp hoặc bắt đầu lại!
         </p>
         <div className="flex flex-col w-full max-w-xs space-y-2.5">
-          <button
-            onClick={() => {
-              setCurrentIndex(0);
-              if (onReloadCards) onReloadCards();
-            }}
-            className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-2xl font-bold text-xs shadow-md shadow-orange-500/30 hover:brightness-105 transition active:scale-98"
-          >
-            🔄 Tải lại danh sách & Quẹt tiếp
-          </button>
+          {matchedCount > 0 && onGoToChat && (
+            <button
+              onClick={onGoToChat}
+              className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-2xl font-bold text-xs shadow-md shadow-orange-500/30 hover:brightness-105 transition active:scale-98 flex items-center justify-center space-x-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>💬 Vào Hộp Thư Trò Chuyện Ngay</span>
+            </button>
+          )}
+          {onResetSwipes && (
+            <button
+              onClick={() => {
+                setCurrentIndex(0);
+                onResetSwipes();
+              }}
+              className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-2xl font-bold text-xs shadow-md shadow-orange-500/30 hover:brightness-105 transition active:scale-98"
+            >
+              🔄 Bắt đầu lại vòng quẹt gu
+            </button>
+          )}
           {currentIndex > 0 && (
             <button
               onClick={handleRewind}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-xs transition active:scale-98"
+              className="w-full py-2 text-slate-600 hover:text-slate-800 rounded-2xl font-bold text-xs transition active:scale-98"
             >
               Xem lại người vừa quẹt
             </button>

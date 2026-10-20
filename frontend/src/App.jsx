@@ -328,6 +328,20 @@ export default function App() {
     // Chỉ lấy từ nguồn người dùng THỰC SỰ ĐÃ ĐĂNG KÝ (Backend SQLite + LocalStorage Community)
     const allPool = [...liveCards, ...communityUsers];
 
+    // Lấy danh sách ID đã quẹt hoặc đã kết nối thành công (ở mục Trò chuyện)
+    let savedSwiped = [];
+    if (!allowReset) {
+      try {
+        savedSwiped = JSON.parse(localStorage.getItem('foodmate_swiped_ids') || '[]');
+      } catch (e) {}
+    }
+    const swipedSet = new Set(savedSwiped);
+
+    // Thu thập danh sách ID hoặc Tên của những người bạn đã match / đang có trong hộp thư
+    const currentChats = getDisplayChats(chats, profile);
+    const matchedPartnerIds = new Set(currentChats.map((c) => c.partnerId).filter(Boolean));
+    const matchedPartnerNames = new Set(currentChats.map((c) => normalizeStr(c.partnerName || '')).filter(Boolean));
+
     const seenIds = new Set();
     const finalCards = [];
 
@@ -343,7 +357,14 @@ export default function App() {
         (currentUserPhoneClean && cardPhoneClean && currentUserPhoneClean === cardPhoneClean) ||
         (currentUserNameNorm && cardNameNorm && currentUserNameNorm === cardNameNorm);
 
-      if (isSelf || seenIds.has(card.id)) {
+      // Tuyệt đối không hiển thị lại người đã quẹt hoặc đã có trong danh sách Trò chuyện (trừ khi chủ động reset)
+      const isAlreadyMatchedOrSwiped =
+        !allowReset &&
+        (swipedSet.has(card.id) ||
+         matchedPartnerIds.has(card.id) ||
+         (cardNameNorm && matchedPartnerNames.has(cardNameNorm)));
+
+      if (isSelf || seenIds.has(card.id) || isAlreadyMatchedOrSwiped) {
         continue;
       }
       seenIds.add(card.id);
@@ -549,6 +570,18 @@ export default function App() {
     const cardId = typeof cardOrId === 'object' ? (cardOrId.id || cardOrId.user_id) : cardOrId;
     console.log(`Swiped ${action} on ${cardId}`);
     api.swipe(cardId, action, profile?.id || 'user-me');
+
+    // Lưu ngay cardId vào danh sách đã quẹt cục bộ để không bao giờ xuất hiện lại trong cọc thẻ
+    try {
+      const swiped = JSON.parse(localStorage.getItem('foodmate_swiped_ids') || '[]');
+      if (!swiped.includes(cardId)) {
+        swiped.push(cardId);
+        localStorage.setItem('foodmate_swiped_ids', JSON.stringify(swiped));
+      }
+    } catch (e) {}
+
+    // Lập tức loại bỏ thẻ này khỏi danh sách đang hiển thị
+    setCards((prev) => prev.filter((c) => c.id !== cardId));
 
     if (action === 'like' || action === 'super') {
       const card = typeof cardOrId === 'object' ? cardOrId : cards.find((c) => c.id === cardId);
@@ -842,6 +875,12 @@ export default function App() {
   // Danh sách hội thoại đã được chuẩn hóa danh tính đối tác theo tài khoản đang đăng nhập
   const displayChats = getDisplayChats(chats, profile);
 
+  // Đặt lại lịch sử quẹt thẻ (nếu người dùng muốn khám phá lại từ đầu)
+  const handleResetSwipes = () => {
+    localStorage.removeItem('foodmate_swiped_ids');
+    reloadDiscoveryCards(true);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex justify-center selection:bg-orange-500 selection:text-white">
       {/* Khung mô phỏng kích thước Mobile App hiện đại */}
@@ -909,7 +948,10 @@ export default function App() {
               onSwipe={handleSwipe}
               onOpenChatWith={handleOpenChatWith}
               myProfile={profile}
-              onReloadCards={reloadDiscoveryCards}
+              onReloadCards={() => reloadDiscoveryCards(false)}
+              onGoToChat={() => setActiveTab('chat')}
+              onResetSwipes={handleResetSwipes}
+              matchedCount={displayChats.length}
             />
           )}
 
