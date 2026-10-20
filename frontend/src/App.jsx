@@ -10,6 +10,7 @@ import RestaurantsView from './components/RestaurantsView';
 import {
   INITIAL_MY_PROFILE,
   MOCK_RESTAURANTS,
+  DEFAULT_COMMUNITY_USERS,
 } from './data/mockData';
 import { api } from './services/api';
 import { AlertTriangle, PhoneCall, X, Calendar, MapPin, Send } from 'lucide-react';
@@ -114,13 +115,18 @@ export default function App() {
       console.warn('Backend unavailable, fallback to community users:', e);
     }
 
-    let communityUsers = [];
+    let savedCommunity = [];
     try {
-      communityUsers = JSON.parse(localStorage.getItem('foodmate_community_users') || '[]');
+      savedCommunity = JSON.parse(localStorage.getItem('foodmate_community_users') || '[]');
     } catch (e) {}
 
+    // Gộp tất cả tài khoản người dùng thực tế đã đăng ký (Sang, Thy và các tài khoản tạo mới)
+    const communityMap = new Map();
+    DEFAULT_COMMUNITY_USERS.forEach((u) => communityMap.set(u.id, u));
+    savedCommunity.forEach((u) => communityMap.set(u.id, u));
+    const communityUsers = Array.from(communityMap.values());
+
     // Chỉ lấy từ nguồn người dùng THỰC SỰ ĐÃ ĐĂNG KÝ (Backend SQLite + LocalStorage Community)
-    // Tuyệt đối không nạp thẻ demo để bám sát thực tế 100%
     const allPool = [...liveCards, ...communityUsers];
 
     const seenIds = new Set();
@@ -132,11 +138,9 @@ export default function App() {
       const cardNameNorm = normalizeStr(card.fullName || '');
 
       // Tuyệt đối không hiển thị chính tài khoản của mình
-      // Lọc đa tầng: theo ID, theo mã me-user/user-me, theo Số điện thoại và theo Họ tên (không dấu)
+      // Lọc đa tầng: theo ID, theo Số điện thoại và theo Họ tên (không phân biệt dấu)
       const isSelf =
         card.id === currentUserId ||
-        card.id === 'user-me' ||
-        card.id === 'me-user-01' ||
         (currentUserPhoneClean && cardPhoneClean && currentUserPhoneClean === cardPhoneClean) ||
         (currentUserNameNorm && cardNameNorm && currentUserNameNorm === cardNameNorm);
 
@@ -212,6 +216,8 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('foodmate_user');
     setIsLoggedIn(false);
+    setProfile(null);
+    setAuthMode('login');
   };
 
   // Modals

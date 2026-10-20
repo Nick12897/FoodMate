@@ -100,7 +100,13 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
     """
     Đăng nhập vào hệ thống bằng số điện thoại.
     """
-    user = db.query(User).filter(User.phone_number == req.phone_number).first()
+    phone = req.phone_number.strip()
+    digits = ''.join(c for c in phone if c.isdigit())
+    suffix = digits[-9:] if len(digits) >= 9 else digits
+    user = db.query(User).filter(
+        (User.phone_number == phone) |
+        (User.phone_number.like(f"%{suffix}"))
+    ).first()
     if not user:
         raise HTTPException(
             status_code=404,
@@ -108,6 +114,11 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
         )
 
     taste = user.taste_profile
+
+    # Tính tuổi từ date_of_birth
+    age = 24
+    if user.date_of_birth and len(user.date_of_birth) >= 4 and user.date_of_birth[:4].isdigit():
+        age = max(18, 2026 - int(user.date_of_birth[:4]))
 
     return {
         "success": True,
@@ -118,7 +129,7 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
                 "id": user.id,
                 "phone_number": user.phone_number,
                 "full_name": user.full_name,
-                "age": 25,
+                "age": age,
                 "gender": user.gender,
                 "occupation": user.occupation,
                 "bio": user.bio,

@@ -22,26 +22,84 @@ export const BUDGET_TIERS = [
 ];
 
 export const INITIAL_MY_PROFILE = {
-  id: 'me-user-01',
-  fullName: 'Minh Khoa',
-  age: 25,
+  id: 'user-f9e57803',
+  fullName: 'Lương Đình Khánh Sang',
+  age: 29,
   gender: 'Nam',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
-  bio: 'Mê lẩu nấm & đồ nướng Hàn Quốc, tìm bạn ăn chung mỗi tối cuối tuần quanh Q1 & Bình Thạnh!',
-  occupation: 'Software Engineer',
-  trustScore: 98,
+  avatarUrl: './sang_avatar.png',
+  bio: 'Yêu thích Bún Đậu, và các món Chiên',
+  occupation: 'IT',
+  trustScore: 100,
   isVerified: true,
   tasteProfile: {
-    cuisines: ['VN_TRAD', 'KOR_BBQ', 'HOTPOT'],
-    spicyLevel: 3,
-    budgetTier: 'BUDGET_T3',
-    connectionPurpose: 'food_buddy', // 'food_buddy', 'friendship', 'dating'
-    favoriteDish: 'Lẩu Nấm Bò Wagyu',
-    allergies: ['Dị ứng tôm cua biển'],
+    cuisines: ['VN_TRAD', 'THA_HOT'],
+    spicyLevel: 2,
+    budgetTier: 'BUDGET_T2',
+    connectionPurpose: 'food_buddy',
+    favoriteDish: 'Bún Đậu & Món Chiên',
+    allergies: [],
     dietary: 'Ăn tự do',
-    maxDistanceKm: 10,
+    maxDistanceKm: 20,
   }
 };
+
+// 2 Tài khoản thành viên cộng đồng thực tế đã đăng ký
+export const DEFAULT_COMMUNITY_USERS = [
+  {
+    id: 'user-f9e57803',
+    fullName: 'Lương Đình Khánh Sang',
+    phoneNumber: '0969560183',
+    age: 29,
+    gender: 'Nam',
+    occupation: 'IT',
+    bio: 'Yêu thích Bún Đậu, và các món Chiên',
+    avatarUrl: './sang_avatar.png',
+    trustScore: 100,
+    isVerified: true,
+    distanceKm: 1.8,
+    compatibilityScore: 92,
+    favoriteDish: 'Bún Đậu & Món Chiên',
+    spicyLevel: 2,
+    budgetTier: 'BUDGET_T2',
+    connectionPurpose: 'food_buddy',
+    cuisines: ['VN_TRAD', 'THA_HOT'],
+    tasteProfile: {
+      cuisines: ['VN_TRAD', 'THA_HOT'],
+      spicyLevel: 2,
+      budgetTier: 'BUDGET_T2',
+      favoriteDish: 'Bún Đậu & Món Chiên',
+      connectionPurpose: 'food_buddy',
+      maxDistanceKm: 20
+    }
+  },
+  {
+    id: 'user-thy-01',
+    fullName: 'Lê Thị Ngọc Thy',
+    phoneNumber: '0901234568',
+    age: 22,
+    gender: 'Nữ',
+    occupation: 'Dược Sĩ',
+    bio: 'Tìm bạn ăn cùng bàn!',
+    avatarUrl: './thy_avatar.png',
+    trustScore: 100,
+    isVerified: true,
+    distanceKm: 1.2,
+    compatibilityScore: 95,
+    favoriteDish: 'Gà Rán Jollibee',
+    spicyLevel: 2,
+    budgetTier: 'BUDGET_T2',
+    connectionPurpose: 'food_buddy',
+    cuisines: ['VN_STREET', 'VN_TRAD', 'KOR_BBQ'],
+    tasteProfile: {
+      cuisines: ['VN_STREET', 'VN_TRAD', 'KOR_BBQ'],
+      spicyLevel: 2,
+      budgetTier: 'BUDGET_T2',
+      favoriteDish: 'Gà Rán Jollibee',
+      connectionPurpose: 'food_buddy',
+      maxDistanceKm: 10
+    }
+  }
+];
 
 export const MOCK_DISCOVERY_CARDS = [
   {

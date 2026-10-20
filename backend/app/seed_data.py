@@ -105,33 +105,78 @@ def seed_initial_data(db: Session):
         ]
         db.add_all(restaurants)
 
-    # 4. Users & Taste Profiles
-    if not db.query(User).filter(User.id == "user-me").first():
-        # User hiện tại: Minh Khoa
-        me = User(
-            id="user-me",
-            phone_number="+84901234567",
-            full_name="Minh Khoa",
+    # 4. Users & Taste Profiles (2 Tài khoản thực tế của người dùng: Sang & Thy)
+    # Tài khoản 1: Lương Đình Khánh Sang
+    sang = db.query(User).filter((User.id == "user-f9e57803") | (User.full_name.like("%Khánh Sang%"))).first()
+    if not sang:
+        sang = User(
+            id="user-f9e57803",
+            phone_number="0969560183",
+            full_name="Lương Đình Khánh Sang",
             gender="male",
-            date_of_birth="2001-05-15",
-            avatar_url="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80",
-            bio="Mê lẩu nấm & đồ nướng Hàn Quốc, tìm bạn ăn chung mỗi tối cuối tuần quanh Q1 & Bình Thạnh!",
-            occupation="Software Engineer",
+            date_of_birth="1997-01-01",
+            avatar_url="/FoodMate/sang_avatar.png",
+            bio="Yêu thích Bún Đậu, và các món Chiên",
+            occupation="IT",
+            role="member",
+            status="active",
             is_verified=True,
-            trust_score=98,
+            trust_score=100,
             latitude=10.7769,
             longitude=106.7009
         )
-        me_taste = UserTasteProfile(
-            user_id="user-me",
-            cuisines_json=json.dumps(["VN_TRAD", "KOR_BBQ", "HOTPOT"]),
-            spicy_level=3,
-            budget_tier="BUDGET_T3",
+        db.add(sang)
+        db.commit()
+        db.refresh(sang)
+
+        sang_taste = UserTasteProfile(
+            user_id=sang.id,
+            cuisines_json=json.dumps(["VN_TRAD", "THA_HOT"]),
+            spicy_level=2,
+            budget_tier="BUDGET_T2",
             connection_purpose="food_buddy",
-            favorite_dish="Lẩu Nấm Bò Wagyu",
+            favorite_dish="Bún Đậu & Món Chiên",
+            max_distance_km=20
+        )
+        db.add(sang_taste)
+        db.commit()
+
+    # Tài khoản 2: Lê Thị Ngọc Thy
+    thy = db.query(User).filter((User.id == "user-thy-01") | (User.full_name.like("%Ngọc Thy%"))).first()
+    if not thy:
+        thy = User(
+            id="user-thy-01",
+            phone_number="0901234568",
+            full_name="Lê Thị Ngọc Thy",
+            gender="female",
+            date_of_birth="2004-05-10",
+            avatar_url="/FoodMate/thy_avatar.png",
+            bio="Tìm bạn ăn cùng bàn!",
+            occupation="Dược Sĩ",
+            role="member",
+            status="active",
+            is_verified=True,
+            trust_score=100,
+            latitude=10.7810,
+            longitude=106.6980
+        )
+        db.add(thy)
+        db.commit()
+        db.refresh(thy)
+
+        thy_taste = UserTasteProfile(
+            user_id=thy.id,
+            cuisines_json=json.dumps(["VN_STREET", "VN_TRAD", "KOR_BBQ"]),
+            spicy_level=2,
+            budget_tier="BUDGET_T2",
+            connection_purpose="food_buddy",
+            favorite_dish="Gà Rán Jollibee",
             max_distance_km=10
         )
-        db.add(me)
-        db.add(me_taste)
+        db.add(thy_taste)
+        db.commit()
 
+    # Xóa bất kỳ tài khoản demo cũ 'user-me' nếu còn sót lại
+    db.query(UserTasteProfile).filter(UserTasteProfile.user_id == "user-me").delete()
+    db.query(User).filter(User.id == "user-me").delete()
     db.commit()

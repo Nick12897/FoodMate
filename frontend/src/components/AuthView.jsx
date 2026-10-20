@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, Phone, Lock, Flame, Utensils, Check, ArrowRight, Sparkles, LogIn, UserPlus, Camera, Trash2 } from 'lucide-react';
-import { MASTER_CUISINES, BUDGET_TIERS } from '../data/mockData';
+import { MASTER_CUISINES, BUDGET_TIERS, DEFAULT_COMMUNITY_USERS } from '../data/mockData';
 import { api } from '../services/api';
 
 export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthSuccess }) {
@@ -69,8 +69,23 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
       const res = await api.login(loginPhone.trim(), loginPassword);
       if (res && res.data && res.data.user) {
         onAuthSuccess(res.data.user);
+        return;
       }
     } catch (err) {
+      console.warn('Backend login fallback to community pool:', err);
+      const cleanInput = loginPhone.trim().replace(/\D/g, '');
+      const localPool = [
+        ...DEFAULT_COMMUNITY_USERS,
+        ...(JSON.parse(localStorage.getItem('foodmate_community_users') || '[]'))
+      ];
+      const found = localPool.find((u) => {
+        const uPhone = (u.phoneNumber || u.phone_number || '').replace(/\D/g, '');
+        return uPhone && (uPhone === cleanInput || uPhone.endsWith(cleanInput) || cleanInput.endsWith(uPhone));
+      });
+      if (found) {
+        onAuthSuccess(found);
+        return;
+      }
       setErrorMsg(err.message || 'Số điện thoại hoặc mật khẩu không chính xác. Vui lòng thử lại.');
     } finally {
       setLoading(false);
@@ -305,6 +320,48 @@ export default function AuthView({ authMode = 'login', onChangeAuthMode, onAuthS
             <span>{loading ? 'Đang xác thực...' : 'Đăng nhập vào FoodMate'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
+
+          {/* Chuyển đổi nhanh 2 tài khoản cục bộ của bạn */}
+          <div className="pt-1">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2 text-center">
+              ⚡ Chuyển đổi nhanh 2 tài khoản cục bộ:
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onAuthSuccess(DEFAULT_COMMUNITY_USERS[0])}
+                className="p-2 bg-orange-50/80 hover:bg-orange-100 border border-orange-200/80 rounded-2xl text-left transition flex items-center space-x-2 shadow-xs active:scale-95"
+                title="Đăng nhập Lương Đình Khánh Sang"
+              >
+                <img
+                  src={DEFAULT_COMMUNITY_USERS[0].avatarUrl}
+                  alt={DEFAULT_COMMUNITY_USERS[0].fullName}
+                  className="w-8 h-8 rounded-full object-cover shrink-0 border border-orange-300"
+                />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-slate-900 truncate">Khánh Sang</p>
+                  <span className="text-[10px] text-slate-500 font-medium">IT (29t)</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onAuthSuccess(DEFAULT_COMMUNITY_USERS[1])}
+                className="p-2 bg-rose-50/80 hover:bg-rose-100 border border-rose-200/80 rounded-2xl text-left transition flex items-center space-x-2 shadow-xs active:scale-95"
+                title="Đăng nhập Lê Thị Ngọc Thy"
+              >
+                <img
+                  src={DEFAULT_COMMUNITY_USERS[1].avatarUrl}
+                  alt={DEFAULT_COMMUNITY_USERS[1].fullName}
+                  className="w-8 h-8 rounded-full object-cover shrink-0 border border-rose-300"
+                />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-slate-900 truncate">Ngọc Thy</p>
+                  <span className="text-[10px] text-slate-500 font-medium">Dược Sĩ (22t)</span>
+                </div>
+              </button>
+            </div>
+          </div>
 
           {/* Phân cách tiếp tục với mạng xã hội */}
           <div className="relative flex py-1 items-center">
