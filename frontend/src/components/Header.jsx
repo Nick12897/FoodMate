@@ -1,7 +1,7 @@
 import React from 'react';
 import { Flame, MapPin, ShieldCheck, AlertCircle } from 'lucide-react';
 
-export default function Header({ onSosClick, isLoggedIn }) {
+export default function Header({ onSosClick, isLoggedIn, profile }) {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-orange-100 px-3.5 py-2.5 shadow-xs">
       <div className="max-w-md mx-auto flex items-center justify-between">
@@ -33,13 +33,26 @@ export default function Header({ onSosClick, isLoggedIn }) {
             <span className="text-[11px]">SOS</span>
           </button>
           
-          {/* Huy hiệu xác thực khi đã đăng nhập */}
-          {isLoggedIn && (
+          {/* Hiển thị rõ danh tính tài khoản đang dùng để tránh nhầm lẫn giữa 2 tài khoản */}
+          {isLoggedIn && profile ? (
+            <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-orange-50 border border-orange-200 rounded-full text-xs font-bold text-orange-700 shadow-2xs">
+              <img
+                src={profile.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80'}
+                alt={profile.fullName}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80';
+                }}
+                className="w-4 h-4 rounded-full object-cover border border-orange-300 shrink-0"
+              />
+              <span className="truncate max-w-[90px]">{profile.fullName?.split(' ').slice(-1)[0] || 'Tôi'}</span>
+            </div>
+          ) : isLoggedIn ? (
             <div className="flex items-center text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-full font-medium border border-emerald-200">
               <ShieldCheck className="w-3.5 h-3.5 mr-1 text-emerald-600" />
               <span>Đã eKYC</span>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </header>

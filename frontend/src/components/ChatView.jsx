@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Send, Utensils, Calendar, MapPin, ArrowLeft, Sparkles, MessageCircle, Heart, CheckCircle2, Smile, X } from 'lucide-react';
 
 export default function ChatView({
@@ -15,6 +15,7 @@ export default function ChatView({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiCategory, setEmojiCategory] = useState('food'); // 'food' | 'react'
   const [floatingHearts, setFloatingHearts] = useState([]);
+  const messagesEndRef = useRef(null);
 
   // Kích hoạt đàn trái tim bay lên trong 2 giây khi bấm thả tim nhanh
   const triggerHeartBurst = () => {
@@ -42,12 +43,28 @@ export default function ChatView({
   const FOOD_EMOJIS = ['🍜', '🍲', '🍕', '🍔', '🍗', '🍣', '🥩', '🧋', '☕', '🍻', '🍦', '🌶️', '🥢', '🍱', '🎂', '🍟', '🌮', '🥗', '🍩', '🥑', '🥟', '🍤', '🥞', '🥓'];
   const REACT_EMOJIS = ['😋', '🤤', '🥰', '😍', '👋', '❤️', '✨', '🔥', '👍', '🥳', '🤩', '💬', '💖', '🥂', '🎉', '💯', '😂', '🥺', '👌', '🤗', '🙏', '🙌', '🤤', '😘'];
 
-  // Đồng bộ khi App.jsx truyền vào activeChatId mới (ví dụ khi người dùng click "Nhắn tin rủ đi ăn ngay" từ Match modal)
+  // Đồng bộ khi App.jsx truyền vào activeChatId mới
   useEffect(() => {
-    setSelectedChatId(activeChatId);
+    if (activeChatId) {
+      setSelectedChatId(activeChatId);
+    }
   }, [activeChatId]);
 
-  const currentChat = chats.find((c) => c.id === selectedChatId);
+  const currentChat =
+    chats.find(
+      (c) =>
+        c.id === selectedChatId ||
+        c.canonicalId === selectedChatId ||
+        (selectedChatId && c.partnerId && selectedChatId.includes(c.partnerId)) ||
+        (selectedChatId && c.id && selectedChatId.includes(c.id))
+    ) || (chats.length === 1 ? chats[0] : null);
+
+  // Tự động cuộn xuống tin nhắn mới nhất
+  useEffect(() => {
+    if (currentChat && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [currentChat?.messages?.length, selectedChatId]);
 
   const handleSelectChat = (chatId) => {
     setSelectedChatId(chatId);
@@ -295,6 +312,7 @@ export default function ChatView({
                   </div>
                 );
               })}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Quick Prompts Gợi ý: Chỉ hiển thị khi mới match và chưa gửi tin nhắn nào */}
