@@ -145,10 +145,24 @@ export default function ChatView({
 
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-1">
-                      <h4 className="font-bold text-slate-900 text-sm truncate">{chat.partnerName}</h4>
-                      <span className="text-[11px] font-semibold text-slate-400 shrink-0 ml-1">
-                        {chat.lastMessageTime}
-                      </span>
+                      <div className="flex items-center space-x-2 truncate">
+                        <h4 className={`text-sm truncate ${chat.unreadCount > 0 ? 'font-black text-slate-900' : 'font-bold text-slate-800'}`}>
+                          {chat.partnerName}
+                        </h4>
+                        {chat.unreadCount > 0 && (
+                          <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1.5 shrink-0 ml-1">
+                        <span className={`text-[11px] ${chat.unreadCount > 0 ? 'font-bold text-orange-600' : 'font-semibold text-slate-400'}`}>
+                          {chat.lastMessageTime}
+                        </span>
+                        {chat.unreadCount > 0 && (
+                          <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-xs">
+                            {chat.unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Món khoái khẩu chung */}
@@ -160,7 +174,9 @@ export default function ChatView({
                       </div>
                     )}
 
-                    <p className="text-xs text-slate-500 truncate font-medium">{chat.lastMessage}</p>
+                    <p className={`text-xs truncate ${chat.unreadCount > 0 ? 'font-bold text-slate-900' : 'font-medium text-slate-500'}`}>
+                      {chat.lastMessage}
+                    </p>
                   </div>
                 </button>
               ))

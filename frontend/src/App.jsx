@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import DiscoveryFeed from './components/DiscoveryFeed';
@@ -63,6 +63,44 @@ export default function App() {
     return [];
   });
   const [activeChatId, setActiveChatId] = useState(null);
+  const [inAppNotification, setInAppNotification] = useState(null);
+  const activeTabRef = useRef(activeTab);
+  const activeChatIdRef = useRef(activeChatId);
+
+  const handleMarkChatAsRead = (chatId) => {
+    setChats((prev) => {
+      const updated = prev.map((c) => {
+        if (
+          c.id === chatId ||
+          c.canonicalId === chatId ||
+          (chatId && c.partnerId && chatId.includes(c.partnerId)) ||
+          (chatId && c.id && chatId.includes(c.id))
+        ) {
+          return { ...c, unreadCount: 0 };
+        }
+        return c;
+      });
+      try {
+        localStorage.setItem('foodmate_chats', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+    activeChatIdRef.current = activeChatId;
+    if (activeTab === 'chat' && activeChatId) {
+      handleMarkChatAsRead(activeChatId);
+    }
+  }, [activeTab, activeChatId]);
+
+  useEffect(() => {
+    if (inAppNotification) {
+      const timer = setTimeout(() => setInAppNotification(null), 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [inAppNotification]);
 
   // Chuẩn hóa và phòng vệ dữ liệu thẻ thành viên
   const normalizeCard = (c) => {
@@ -214,6 +252,12 @@ export default function App() {
     const mergedMap = new Map();
     for (const chat of parsedChats) {
       const key = chat.canonicalId;
+      const isViewing =
+        activeTabRef.current === 'chat' &&
+        (activeChatIdRef.current === key ||
+          (activeChatIdRef.current && chat.partnerId && activeChatIdRef.current.includes(chat.partnerId)));
+      const unread = isViewing ? 0 : (chat.unreadCount || 0);
+
       if (!mergedMap.has(key)) {
         // Lọc sạch mọi tin nhắn trùng lặp
         const seenInChat = new Set();
@@ -230,7 +274,8 @@ export default function App() {
           ...chat,
           messages: cleanMsgs,
           lastMessage: lastMsg ? lastMsg.text : chat.lastMessage,
-          lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : chat.lastMessageTime
+          lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : chat.lastMessageTime,
+          unreadCount: unread,
         });
       } else {
         const existing = mergedMap.get(key);
@@ -244,7 +289,8 @@ export default function App() {
           ...existing,
           messages: allMsgs,
           lastMessage: lastMsg ? lastMsg.text : existing.lastMessage,
-          lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : existing.lastMessageTime
+          lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : existing.lastMessageTime,
+          unreadCount: isViewing ? 0 : Math.max(existing.unreadCount || 0, unread),
         });
       }
     }
@@ -330,11 +376,34 @@ export default function App() {
             const map = new Map();
             prev.forEach((c) => map.set(c.id, c));
 
+            let notificationToTrigger = null;
+
             liveConvs.forEach((lc) => {
               const existing = map.get(lc.id);
+              const serverMsgs = lc.messages || [];
+
+              const isViewing =
+                activeTabRef.current === 'chat' &&
+                (activeChatIdRef.current === lc.id ||
+                  activeChatIdRef.current === existing?.canonicalId ||
+                  (activeChatIdRef.current && lc.partnerId && activeChatIdRef.current.includes(lc.partnerId)));
+
               if (existing) {
-                // Hợp nhất thông minh: server là nguồn chuẩn, khử trùng lặp hoàn toàn
-                const serverMsgs = lc.messages || [];
+                // Khử trùng lặp và xác định tin nhắn mới đến từ đối tác
+                const existingKeySet = new Set(
+                  (existing.messages || []).map(
+                    (m) => `${m.senderId || m.sender}_${(m.text || '').trim()}`
+                  )
+                );
+
+                // Tin nhắn mới từ phía đối tác ('them')
+                const newIncomingFromPartner = serverMsgs.filter((m) => {
+                  const isThem = m.sender === 'them' || (m.senderId && m.senderId !== currentUserId);
+                  const key = `${m.senderId || m.sender}_${(m.text || '').trim()}`;
+                  return isThem && !existingKeySet.has(key);
+                });
+
+                // Server là nguồn chuẩn, khử trùng lặp hoàn toàn
                 const serverKeys = new Set(
                   serverMsgs.map((m) => `${m.senderId || m.sender}_${(m.text || '').trim()}`)
                 );
@@ -348,16 +417,37 @@ export default function App() {
                 const mergedMsgs = [...serverMsgs, ...pendingLocalMsgs];
                 const lastMsg = mergedMsgs.length > 0 ? mergedMsgs[mergedMsgs.length - 1] : null;
 
+                let updatedUnread = existing.unreadCount || 0;
+                if (isViewing) {
+                  updatedUnread = 0;
+                } else if (newIncomingFromPartner.length > 0) {
+                  updatedUnread += newIncomingFromPartner.length;
+                  notificationToTrigger = {
+                    partnerName: lc.partnerName || existing.partnerName || 'Bạn ăn',
+                    partnerAvatar: lc.partnerAvatar || existing.partnerAvatar,
+                    text: newIncomingFromPartner[newIncomingFromPartner.length - 1].text,
+                    chatId: lc.id,
+                  };
+                }
+
                 map.set(lc.id, {
                   ...existing,
                   lastMessage: lastMsg ? lastMsg.text : (lc.lastMessage || existing.lastMessage),
                   lastMessageTime: lastMsg ? (lastMsg.time || 'Vừa xong') : (lc.lastMessageTime || existing.lastMessageTime),
                   messages: mergedMsgs,
+                  unreadCount: updatedUnread,
                 });
               } else {
-                map.set(lc.id, lc);
+                map.set(lc.id, {
+                  ...lc,
+                  unreadCount: isViewing ? 0 : (lc.unreadCount || 0),
+                });
               }
             });
+
+            if (notificationToTrigger) {
+              setInAppNotification(notificationToTrigger);
+            }
 
             const merged = Array.from(map.values());
             try {
@@ -596,6 +686,7 @@ export default function App() {
 
     setActiveChatId(chatId);
     setActiveTab('chat');
+    handleMarkChatAsRead(chatId);
   };
 
   // Handler Gửi tin nhắn
@@ -624,6 +715,7 @@ export default function App() {
             id: canonicalId,
             lastMessage: text,
             lastMessageTime: newMsg.time,
+            unreadCount: 0,
             messages: [...(c.messages || []), newMsg],
           };
         }
@@ -638,6 +730,7 @@ export default function App() {
           partnerAvatar: activeChat?.partnerAvatar || './thy_avatar.png',
           lastMessage: text,
           lastMessageTime: newMsg.time,
+          unreadCount: 0,
           messages: [newMsg],
         });
       }
@@ -759,6 +852,55 @@ export default function App() {
           isLoggedIn={isLoggedIn}
         />
 
+        {/* Floating In-App Message Notification Banner */}
+        {inAppNotification && (
+          <div className="fixed top-16 left-0 right-0 z-50 px-4 max-w-md mx-auto pointer-events-none animate-in slide-in-from-top-4 duration-300">
+            <div
+              onClick={() => {
+                const targetId = inAppNotification.chatId;
+                setActiveTab('chat');
+                setActiveChatId(targetId);
+                handleMarkChatAsRead(targetId);
+                setInAppNotification(null);
+              }}
+              className="pointer-events-auto bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl border border-slate-700/60 flex items-center space-x-3 cursor-pointer hover:bg-slate-900 transition active:scale-98"
+            >
+              <div className="relative shrink-0">
+                <img
+                  src={inAppNotification.partnerAvatar || './thy_avatar.png'}
+                  alt={inAppNotification.partnerName}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80';
+                  }}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-orange-500 shadow-sm"
+                />
+                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-orange-400 truncate">
+                    {inAppNotification.partnerName}
+                  </span>
+                  <span className="text-[10px] text-slate-400">Vừa xong</span>
+                </div>
+                <p className="text-xs text-slate-200 truncate font-medium">
+                  {inAppNotification.text}
+                </p>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setInAppNotification(null);
+                }}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Nội dung chính theo Tab */}
         <main className="flex-1">
           {activeTab === 'feed' && (
@@ -795,7 +937,10 @@ export default function App() {
               onSendMessage={handleSendMessage}
               onQuickInvite={handleQuickInviteFromChat}
               activeChatId={activeChatId}
-              onSelectChat={(id) => setActiveChatId(id)}
+              onSelectChat={(id) => {
+                setActiveChatId(id);
+                if (id) handleMarkChatAsRead(id);
+              }}
               onGoToDiscovery={() => setActiveTab('feed')}
             />
           )}
