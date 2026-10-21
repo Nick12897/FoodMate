@@ -232,11 +232,10 @@ export default function App() {
   };
 
   // Nạp dữ liệu thực từ Backend Python + SQLite và danh sách thành viên cộng đồng đã đăng ký
-  const reloadDiscoveryCards = async () => {
+  const reloadDiscoveryCards = async (allowReset = false) => {
     const currentUserId = profile?.id || 'user-me';
     const currentUserPhoneClean = (profile?.phoneNumber || '').replace(/\D/g, '');
     const currentUserNameNorm = normalizeStr(profile?.fullName || '');
-
     let liveCards = [];
     try {
       const res = await api.getFeed(10.7769, 106.7009, currentUserId);
