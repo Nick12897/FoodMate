@@ -11,6 +11,7 @@ import {
   INITIAL_MY_PROFILE,
   MOCK_RESTAURANTS,
   DEFAULT_COMMUNITY_USERS,
+  MOCK_DISCOVERY_CARDS,
 } from './data/mockData';
 import { api } from './services/api';
 import { AlertTriangle, PhoneCall, X, Calendar, MapPin, Send } from 'lucide-react';
@@ -51,14 +52,11 @@ export default function App() {
   });
   const [chats, setChats] = useState(() => {
     try {
-      // Dọn sạch cache cũ trong localStorage để SQLite backend là nguồn dữ liệu chuẩn nhất
-      localStorage.removeItem('foodmate_chats');
-      const saved = sessionStorage.getItem('foodmate_chats');
+      const saved = localStorage.getItem('foodmate_chats') || sessionStorage.getItem('foodmate_chats');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Chỉ giữ lại những người thực sự đã quẹt được, loại bỏ các đoạn chat demo cũ
-          return parsed.filter((c) => c.id !== 'chat-01' && c.id !== 'chat-02' && c.partnerName !== 'Lê Mai Phương' && c.partnerName !== 'Tuấn Nam');
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((c) => c && c.id !== 'chat-01' && c.id !== 'chat-02' && c.partnerName !== 'Tuấn Nam');
         }
       }
     } catch (e) {}
@@ -143,8 +141,6 @@ export default function App() {
   const getDisplayChats = (rawChats, currentProfile) => {
     if (!currentProfile) return [];
     const myId = currentProfile.id || 'user-f9e57803';
-    const myNameNorm = normalizeStr(currentProfile.fullName || '');
-    const myPhoneClean = (currentProfile.phoneNumber || '').replace(/\D/g, '');
 
     // 1. Chỉ giữ DUY NHẤT 1 đối tượng chat chuẩn cho mỗi cặp người dùng (khử hoàn toàn việc lặp danh sách)
     const chatMap = new Map();
@@ -154,29 +150,16 @@ export default function App() {
       let pId = c.partnerId;
 
       if (!pId && c.userA && c.userB) {
-        const isUserA =
-          c.userA.id === myId ||
-          (c.userA.phoneNumber && c.userA.phoneNumber.replace(/\D/g, '') === myPhoneClean);
-        pId = isUserA ? c.userB.id : c.userA.id;
+        pId = c.userA.id === myId ? c.userB.id : c.userA.id;
       }
 
-      if (!pId || pId === myId) {
+      if (!pId) {
         pId = myId === 'user-f9e57803' ? 'user-thy-01' : 'user-f9e57803';
       }
 
-      let pName = c.partnerName;
-      let pAvatar = c.partnerAvatar;
-      let pDish = c.favoriteDish;
-
-      if (pId === 'user-thy-01') {
-        pName = 'Lê Thị Ngọc Thy';
-        pAvatar = pAvatar || './thy_avatar.png';
-        pDish = pDish || 'Gà Rán Jollibee';
-      } else if (pId === 'user-f9e57803') {
-        pName = 'Lương Đình Khánh Sang';
-        pAvatar = pAvatar || './sang_avatar.png';
-        pDish = pDish || 'Bún Đậu & Món Chiên';
-      }
+      const pName = c.partnerName || (pId === 'user-thy-01' ? 'Lê Thị Ngọc Thy' : (pId === 'user-f9e57803' ? 'Lương Đình Khánh Sang' : 'Bạn Ăn FoodMate'));
+      const pAvatar = c.partnerAvatar || (pId === 'user-thy-01' ? './thy_avatar.png' : (pId === 'user-f9e57803' ? './sang_avatar.png' : 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80'));
+      const pDish = c.favoriteDish || 'Món ngon mỗi ngày';
 
       const canonicalId = `chat_${[myId, pId].sort().join('_')}`;
 
@@ -191,15 +174,11 @@ export default function App() {
           seenMsgKeys.add(msgKey);
 
           // Quyết định ai là 'me' và ai là 'them' tuyệt đối theo senderId của người gửi
-          let isMe = false;
-          if (m.senderId) {
-            isMe = m.senderId === myId;
-          } else {
-            isMe = m.sender === 'me';
-          }
+          const isMe = m.senderId ? (m.senderId === myId) : (m.sender === 'me');
 
           cleanMsgs.push({
             ...m,
+            senderId: m.senderId || (isMe ? myId : pId),
             sender: isMe ? 'me' : 'them',
           });
         }
@@ -208,6 +187,7 @@ export default function App() {
       const isViewing =
         activeTabRef.current === 'chat' &&
         (activeChatIdRef.current === canonicalId ||
+          activeChatIdRef.current === c.id ||
           (activeChatIdRef.current && activeChatIdRef.current.includes(pId)));
 
       const lastMsg = cleanMsgs.length > 0 ? cleanMsgs[cleanMsgs.length - 1] : null;
@@ -257,8 +237,8 @@ export default function App() {
     savedCommunity.forEach((u) => communityMap.set(u.id, u));
     const communityUsers = Array.from(communityMap.values());
 
-    // Chỉ lấy từ nguồn người dùng THỰC SỰ ĐÃ ĐĂNG KÝ (Backend SQLite + LocalStorage Community)
-    const allPool = [...liveCards, ...communityUsers];
+    // Gộp nguồn người dùng thực tế (Backend SQLite + LocalStorage Community + Thẻ khám phá mẫu)
+    const allPool = [...liveCards, ...communityUsers, ...MOCK_DISCOVERY_CARDS];
 
     // Lấy danh sách ID đã quẹt hoặc đã kết nối thành công (ở mục Trò chuyện)
     let savedSwiped = [];
@@ -393,6 +373,7 @@ export default function App() {
           const merged = Array.from(map.values());
           try {
             sessionStorage.setItem('foodmate_chats', JSON.stringify(merged));
+            localStorage.setItem('foodmate_chats', JSON.stringify(merged));
           } catch (e) {}
           return merged;
         });
@@ -412,8 +393,28 @@ export default function App() {
     syncConversations();
     const chatInterval = setInterval(syncConversations, 2000);
 
+    let bc = null;
+    try {
+      bc = new BroadcastChannel('foodmate_sync_channel');
+      bc.onmessage = (ev) => {
+        if (ev.data && (ev.data.type === 'NEW_MESSAGE' || ev.data.type === 'SYNC_CHATS')) {
+          syncConversations();
+        }
+      };
+    } catch (e) {}
+
+    const handleStorage = (ev) => {
+      if (ev.key === 'foodmate_chats' || ev.key === 'foodmate_swiped_ids') {
+        syncConversations();
+        reloadDiscoveryCards();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     return () => {
       clearInterval(chatInterval);
+      if (bc) bc.close();
+      window.removeEventListener('storage', handleStorage);
     };
   }, [profile?.id, profile?.phoneNumber]);
 
@@ -691,6 +692,10 @@ export default function App() {
 
       try {
         sessionStorage.setItem('foodmate_chats', JSON.stringify(updated));
+        localStorage.setItem('foodmate_chats', JSON.stringify(updated));
+        const bc = new BroadcastChannel('foodmate_sync_channel');
+        bc.postMessage({ type: 'NEW_MESSAGE', canonicalId });
+        bc.close();
       } catch (e) {}
       return updated;
     });
@@ -714,6 +719,7 @@ export default function App() {
           });
           try {
             sessionStorage.setItem('foodmate_chats', JSON.stringify(updated));
+            localStorage.setItem('foodmate_chats', JSON.stringify(updated));
           } catch (e) {}
           return updated;
         });
@@ -926,6 +932,7 @@ export default function App() {
               onSendMessage={handleSendMessage}
               onQuickInvite={handleQuickInviteFromChat}
               activeChatId={activeChatId}
+              currentUserId={profile?.id || 'user-f9e57803'}
               onSelectChat={(id) => {
                 setActiveChatId(id);
                 if (id) handleMarkChatAsRead(id);

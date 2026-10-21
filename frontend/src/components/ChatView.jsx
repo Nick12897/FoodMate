@@ -7,7 +7,8 @@ export default function ChatView({
   onQuickInvite,
   activeChatId = null,
   onSelectChat,
-  onGoToDiscovery
+  onGoToDiscovery,
+  currentUserId = null
 }) {
   const [selectedChatId, setSelectedChatId] = useState(activeChatId);
   const [inputText, setInputText] = useState('');
@@ -296,7 +297,7 @@ export default function ChatView({
               </div>
 
               {currentChat.messages.map((m) => {
-                const isMe = m.sender === 'me';
+                const isMe = currentUserId ? (m.senderId === currentUserId) : (m.sender === 'me');
                 return (
                   <div
                     key={m.id}
@@ -319,7 +320,7 @@ export default function ChatView({
             </div>
 
             {/* Quick Prompts Gợi ý: Chỉ hiển thị khi mới match và chưa gửi tin nhắn nào */}
-            {(!currentChat.messages || !currentChat.messages.some((m) => m.sender === 'me')) && (
+            {(!currentChat.messages || !currentChat.messages.some((m) => currentUserId ? m.senderId === currentUserId : m.sender === 'me')) && (
               <div className="px-3 py-1.5 bg-orange-50/60 border-t border-orange-100/80 flex items-center space-x-1.5 overflow-x-auto no-scrollbar animate-in fade-in duration-200">
                 <span className="text-[10px] text-orange-600 shrink-0 font-bold flex items-center">
                   <Sparkles className="w-3 h-3 mr-1" />
