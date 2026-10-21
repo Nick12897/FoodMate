@@ -474,23 +474,6 @@ export default function App() {
     setAuthMode('login');
   };
 
-  // Đổi tài khoản nhanh 1-chạm giữa 2 tài khoản thử nghiệm Sang ⇄ Thy
-  const handleQuickSwitchUser = () => {
-    const isThy = profile?.id === 'user-thy-01' || (profile?.phoneNumber && profile.phoneNumber.includes('0901234568'));
-    const nextUser = isThy ? DEFAULT_COMMUNITY_USERS[0] : DEFAULT_COMMUNITY_USERS[1];
-
-    // Cập nhật tab session để độc lập giữa các tab/cửa sổ
-    sessionStorage.setItem('foodmate_user', JSON.stringify(nextUser));
-    sessionStorage.removeItem('foodmate_chats');
-    
-    // Cập nhật profile và reset state để đồng bộ lại sạch sẽ từ SQLite
-    setProfile(nextUser);
-    setIsLoggedIn(true);
-    setChats([]);
-    setActiveTab('chat');
-    setActiveChatId('chat_user-f9e57803_user-thy-01');
-  };
-
   // Modals
   const [sosModal, setSosModal] = useState(false);
   const [inviteModalData, setInviteModalData] = useState(null);
@@ -854,8 +837,6 @@ export default function App() {
         <Header 
           onSosClick={() => setSosModal(true)} 
           isLoggedIn={isLoggedIn}
-          profile={profile}
-          onSwitchUser={handleQuickSwitchUser}
         />
 
         {/* Floating In-App Message Notification Banner */}
